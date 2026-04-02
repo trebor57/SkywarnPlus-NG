@@ -34,6 +34,7 @@ These trip people up most often:
 | **Asterisk user** | The installer expects the **`asterisk`** user to exist (standard on AllStar / Asterisk nodes). Install Asterisk first, or the script will exit with an error. |
 | **Do not run `install.sh` as root** | Run it as a normal user; the script uses `sudo` where needed. |
 | **Python** | **Python 3.11 or newer** is required. Debian 13 ships **Python 3.13**, which is what we test most. |
+| **`/var/tmp` must not be tmpfs** | Before running **`install.sh`**, **`/var/tmp` must not be mounted as tmpfs** (use a normal disk-backed directory). Some install steps and package tools use **`/var/tmp`**; a small RAM-backed mount often causes **out of space** failures. Remount or change **`/etc/fstab`** / distro defaults so **`/var/tmp`** is on disk, then reboot if needed. |
 | **Release tarball** | Use a [GitHub release](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) tarball. The repo includes a pre-built `tailwind.css`; if you build from a **minimal** git checkout without that file, the installer will warn you—run `npm install && npm run build:css` (see [Web dashboard CSS](#web-dashboard-css-for-developers)) and copy `src/` again, or use an official release. |
 
 ## Quick Start
@@ -100,6 +101,8 @@ Day-to-day operation uses **`systemctl`**; the service runs `skywarnplus_ng.cli 
 On other distributions, install the equivalent packages, then run `./install.sh`.
 
 ## Installation steps (detail)
+
+**Filesystem:** **`/var/tmp` must not be tmpfs** before `./install.sh` (see [Before you install](#before-you-install-read-this-first)). Use disk-backed **`/var/tmp`** if yours is currently tmpfs.
 
 1. **Download** the `.tar.gz` for your version from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). Verify **SHA256** on the release page if you use checksums.
 
