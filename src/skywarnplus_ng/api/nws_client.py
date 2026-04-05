@@ -350,11 +350,29 @@ class NWSClient:
         logger.debug(f"Retrieved {len(alerts)} total alerts")
         return alerts
 
+    @staticmethod
+    def _alert_cancelled_or_no_longer_in_effect(alert: WeatherAlert) -> bool:
+        """
+        True when NWS marks the phenomenon over or the product is a cancellation.
+
+        The active-alerts feed can still return these until `ends`; we drop them so
+        the station does not treat them as live hazards.
+        """
+        if alert.urgency == AlertUrgency.PAST:
+            return True
+        h = (alert.headline or "").lower()
+        if "cancelled" in h or "canceled" in h:
+            return True
+        return False
+
     def filter_active_alerts(
         self, alerts: List[WeatherAlert], time_type: str = "onset"
     ) -> List[WeatherAlert]:
         """
         Filter alerts to only include currently active ones.
+
+        Cancellation products and ``urgency=Past`` (event no longer applicable per
+        CAP) are excluded immediately, even when ``ends`` is still in the future.
 
         Args:
             alerts: List of alerts to filter
@@ -367,6 +385,14 @@ class NWSClient:
         active_alerts = []
 
         for alert in alerts:
+            if self._alert_cancelled_or_no_longer_in_effect(alert):
+                logger.debug(
+                    "Dropping alert %s (%s): cancelled or urgency=Past",
+                    alert.id,
+                    alert.event,
+                )
+                continue
+
             # Determine start and end times based on time_type
             if time_type == "onset" and alert.onset:
                 start_time = alert.onset
