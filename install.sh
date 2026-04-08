@@ -12,6 +12,8 @@ APP_USER="asterisk"
 APP_GROUP="asterisk"
 REQUIRED_PYTHON_VERSION="3.11"
 WEB_PORT=8100
+# Pip/Python use TMPDIR for wheel downloads and builds; /tmp is often a small tmpfs on ARM/ASL nodes.
+SKYWARN_TMPDIR="${SKYWARN_TMPDIR:-/var/tmp}"
 
 # Installation paths
 INSTALL_ROOT="/var/lib/skywarnplus-ng"
@@ -63,6 +65,11 @@ copy_dir_with_ownership() {
 # Run command as app user
 run_as_app_user() {
     sudo -u "${APP_USER}" bash -c "$1"
+}
+
+# Run as app user with TMPDIR on persistent storage (see SKYWARN_TMPDIR).
+run_as_app_user_tmp() {
+    run_as_app_user "export TMPDIR='${SKYWARN_TMPDIR}' && $1"
 }
 
 # Print section header
@@ -239,12 +246,12 @@ install_python_dependencies() {
         return
     fi
     
-    echo "Creating virtual environment..."
-    run_as_app_user "python3 -m venv ${VENV_PATH}"
+    echo "Creating virtual environment (TMPDIR=${SKYWARN_TMPDIR})..."
+    run_as_app_user_tmp "python3 -m venv ${VENV_PATH}"
     
     echo "Installing packages..."
-    run_as_app_user "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade pip"
-    run_as_app_user "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install ."
+    run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade pip"
+    run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install ."
     
     print_success "Python dependencies installed"
 }
@@ -288,9 +295,9 @@ generate_dtmf_configuration() {
         return
     fi
     
-    local log_file="/tmp/dtmf_gen.log"
+    local log_file="${SKYWARN_TMPDIR}/skywarnplus-ng-dtmf-install.log"
     
-    if sudo "${VENV_PYTHON}" "${dtmf_script}" > "${log_file}" 2>&1; then
+    if sudo env TMPDIR="${SKYWARN_TMPDIR}" "${VENV_PYTHON}" "${dtmf_script}" > "${log_file}" 2>&1; then
         if [ -f "${DTMF_CONFIG}" ]; then
             print_success "DTMF configuration generated at ${DTMF_CONFIG}"
         else
