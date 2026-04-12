@@ -233,7 +233,7 @@ class AudioManager:
             # Ensure file is flushed to disk and verify it exists
             try:
                 import time
-                import os
+
                 # Force filesystem sync
                 try:
                     os.sync()  # Sync filesystem buffers
@@ -502,7 +502,7 @@ class AudioManager:
                     temp_wav_path = Path(temp_wav.name)
                 
                 # Convert ulaw to WAV using ffmpeg
-                result = subprocess.run(
+                subprocess.run(
                     [
                         "ffmpeg", "-y",
                         "-f", "mulaw",  # Input format: mulaw

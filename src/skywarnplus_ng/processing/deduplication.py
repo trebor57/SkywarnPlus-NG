@@ -5,7 +5,7 @@ Alert deduplication and merging system for SkywarnPlus-NG.
 import hashlib
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Set, Tuple
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import difflib

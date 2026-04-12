@@ -6,7 +6,6 @@ import asyncio
 import hashlib
 import json
 import logging
-import os
 import re
 import secrets
 from urllib.parse import quote
@@ -31,8 +30,6 @@ from typing import TYPE_CHECKING
 from .. import __version__ as _PACKAGE_VERSION
 from ..core.config import AppConfig
 from ..core.models import AlertSeverity, AlertUrgency, AlertCertainty
-from ..database.manager import DatabaseManager
-from ..monitoring.health import HealthMonitor
 from ..notifications.subscriber import (
     SubscriberManager,
     Subscriber,
@@ -40,7 +37,12 @@ from ..notifications.subscriber import (
     NotificationMethod,
     SubscriptionStatus,
 )
-from ..notifications.templates import TemplateEngine, TemplateType, TemplateFormat
+from ..notifications.templates import (
+    NotificationTemplate,
+    TemplateEngine,
+    TemplateFormat,
+    TemplateType,
+)
 from ..utils.rate_limit import SlidingWindowRateLimiter
 from ..utils.update_check import (
     build_cache_payload,
@@ -478,15 +480,18 @@ class WebDashboard:
         # The base_path is only used for generating URLs in templates/redirects
         app = main_app
         
-        # Setup CORS
-        cors = cors_setup(main_app, defaults={
-            "*": ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_headers="*",
-                allow_methods="*"
-            )
-        })
+        # Setup CORS (registers on main_app)
+        cors_setup(
+            main_app,
+            defaults={
+                "*": ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_headers="*",
+                    allow_methods="*",
+                )
+            },
+        )
         
         # Setup sessions FIRST (required for auth middleware)
         secret_key = bytes.fromhex(self.config.monitoring.http_server.auth.secret_key)
@@ -1017,7 +1022,7 @@ class WebDashboard:
                 
                 try:
                     # Convert ulaw to WAV using ffmpeg
-                    result = subprocess.run(
+                    subprocess.run(
                         [
                             "ffmpeg", "-y",
                             "-f", "mulaw",  # Input format: mulaw
@@ -1676,7 +1681,6 @@ class WebDashboard:
             # Get data for calculations
             health_data = metrics_data["metrics"].get("health", {})
             system_data = metrics_data["metrics"].get("system", {})
-            perf_data = metrics_data["metrics"].get("performance", {})
             
             # Calculate response time metrics
             response_times = []
@@ -1824,7 +1828,7 @@ class WebDashboard:
             cleanup_stats = await self.app.database_manager.cleanup_old_data(days)
             return web.json_response({
                 "success": True,
-                "message": f"Database cleanup completed successfully",
+                "message": "Database cleanup completed successfully",
                 "stats": cleanup_stats
             })
         except Exception as e:

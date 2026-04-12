@@ -8,7 +8,7 @@ import logging
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 import numpy as np
 import soundfile as sf
 from scipy import signal
@@ -261,7 +261,6 @@ class AudioData:
         Raises:
             RuntimeError: If conversion fails or ffmpeg is not available
         """
-        import tempfile
         
         # Create temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -272,7 +271,7 @@ class AudioData:
             sf.write(str(temp_wav_path), audio.data, audio.sample_rate)
             
             # Convert WAV to ulaw using ffmpeg
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "ffmpeg", "-y", "-i", str(temp_wav_path),
                     "-ar", str(audio.sample_rate),
@@ -324,7 +323,6 @@ class AudioData:
     
     def _export_to_mp3(self, audio: 'AudioData', output_path: Path) -> None:
         """Export audio to MP3 format using ffmpeg."""
-        import tempfile
         
         # Create temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -335,7 +333,7 @@ class AudioData:
             sf.write(str(temp_wav_path), audio.data, audio.sample_rate)
             
             # Convert WAV to MP3 using ffmpeg
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "ffmpeg", "-y", "-i", str(temp_wav_path),
                     "-ar", str(audio.sample_rate),
@@ -459,7 +457,6 @@ class AudioData:
         if not path.is_file():
             raise RuntimeError(f"Path is not a file: {file_path}")
         
-        import tempfile
         
         # Create temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -467,7 +464,7 @@ class AudioData:
         
         try:
             # Convert MP3 to WAV using ffmpeg
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "ffmpeg", "-y", "-i", str(file_path),
                     str(temp_wav_path)
@@ -541,7 +538,7 @@ class AudioData:
                     channels = 1
                 logger.debug(f"Loaded audio file via soundfile: {file_path} (format: {ext})")
                 return AudioData(data, sample_rate, channels)
-            except sf.LibsndfileError as e:
+            except sf.LibsndfileError:
                 # Soundfile doesn't support this format, try ffmpeg
                 logger.debug(f"Soundfile cannot read {ext} format, trying ffmpeg conversion")
                 try:
@@ -576,7 +573,6 @@ class AudioData:
         if not path.exists():
             raise FileNotFoundError(f"ulaw file not found: {file_path}")
         
-        import tempfile
         
         # Create temporary WAV file
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
@@ -584,7 +580,7 @@ class AudioData:
         
         try:
             # Convert ulaw to WAV using ffmpeg
-            result = subprocess.run(
+            subprocess.run(
                 [
                     "ffmpeg", "-y",
                     "-f", "mulaw",

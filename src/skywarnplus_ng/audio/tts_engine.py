@@ -77,7 +77,7 @@ class GTTSEngine:
         """
         try:
             # Test gTTS availability by creating a test instance
-            test_tts = gTTS(text="test", lang=self.config.language, tld=self.config.tld, slow=self.config.slow)
+            gTTS(text="test", lang=self.config.language, tld=self.config.tld, slow=self.config.slow)
             return True
         except Exception as e:
             logger.error(f"gTTS not available: {e}")
@@ -182,7 +182,7 @@ class GTTSEngine:
                 
                 # Convert WAV to ulaw using ffmpeg
                 try:
-                    result = subprocess.run(
+                    subprocess.run(
                         [
                             "ffmpeg", "-y", "-i", str(temp_wav_path),
                             "-ar", "8000", "-ac", "1",
@@ -302,7 +302,7 @@ class GTTSEngine:
             if audio_path.suffix.lower() in ['.ulaw', '.ul']:
                 import subprocess
                 try:
-                    result = subprocess.run(
+                    subprocess.run(
                         ["ffprobe", "-v", "error", str(audio_path)],
                         capture_output=True,
                         timeout=10,
@@ -577,7 +577,7 @@ class PiperTSEngine:
                 
                 # Convert WAV to ulaw using ffmpeg
                 try:
-                    result = subprocess.run(
+                    subprocess.run(
                         [
                             "ffmpeg", "-y", "-i", str(temp_wav_path),
                             "-ar", "8000", "-ac", "1",
@@ -684,7 +684,7 @@ class PiperTSEngine:
             # For ulaw files, check with ffprobe
             if audio_path.suffix.lower() in ['.ulaw', '.ul']:
                 try:
-                    result = subprocess.run(
+                    subprocess.run(
                         ["ffprobe", "-v", "error", str(audio_path)],
                         capture_output=True,
                         timeout=10,

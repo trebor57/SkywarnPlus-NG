@@ -11,12 +11,11 @@ import fnmatch
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from .audio_utils import AudioSegment
 
 from ..core.config import AudioConfig, AlertConfig, FilteringConfig
 from ..core.models import WeatherAlert
-from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
 from .manager import AudioManager
 
 logger = logging.getLogger(__name__)
@@ -115,7 +114,7 @@ class TailMessageManager:
                         temp_wav_path = Path(temp_wav.name)
                     
                     # Convert ulaw to WAV using ffmpeg
-                    result = subprocess.run(
+                    subprocess.run(
                         [
                             "ffmpeg", "-y",
                             "-f", "mulaw",  # Input format: mulaw

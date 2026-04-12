@@ -2,7 +2,7 @@
 Code examples generator for SkywarnPlus-NG API.
 """
 
-from typing import Dict, Any, List
+from typing import Dict, List
 from dataclasses import dataclass
 
 

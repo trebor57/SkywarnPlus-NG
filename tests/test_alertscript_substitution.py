@@ -2,7 +2,6 @@
 
 import shlex
 
-import pytest
 
 from skywarnplus_ng.core.models import (
     AlertCategory,

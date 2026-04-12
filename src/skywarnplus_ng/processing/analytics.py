@@ -4,13 +4,13 @@ Alert analytics and reporting system for SkywarnPlus-NG.
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import statistics
 from collections import defaultdict, Counter
 
-from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
+from ..core.models import WeatherAlert
 
 logger = logging.getLogger(__name__)
 

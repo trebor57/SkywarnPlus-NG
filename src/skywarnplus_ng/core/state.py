@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Set, Optional, Any
+from typing import Dict, List, Set, Any
 from collections import OrderedDict
 
 from .models import WeatherAlert

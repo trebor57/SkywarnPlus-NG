@@ -2,17 +2,15 @@
 Delivery queue and status tracking system for SkywarnPlus-NG.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Callable, Awaitable
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, field
 from enum import Enum
 import json
 from pathlib import Path
 import uuid
 
-from ..core.models import WeatherAlert
 
 logger = logging.getLogger(__name__)
 

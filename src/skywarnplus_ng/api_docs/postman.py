@@ -3,8 +3,7 @@ Postman collection generator for SkywarnPlus-NG API.
 """
 
 import json
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any
 
 
 class PostmanCollectionGenerator:

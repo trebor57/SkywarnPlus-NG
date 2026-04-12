@@ -4,11 +4,10 @@ Official Python SDK for SkywarnPlus-NG API.
 
 import requests
 import json
-from typing import Dict, Any, List, Optional, Union
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass
 from datetime import datetime
 import websockets
-import asyncio
 
 
 @dataclass
@@ -72,7 +71,7 @@ class SkywarnPlusClient:
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
-            'User-Agent': f'SkywarnPlus-Python-SDK/{{ version }}'
+            'User-Agent': 'SkywarnPlus-Python-SDK/{ version }'
         })
     
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:

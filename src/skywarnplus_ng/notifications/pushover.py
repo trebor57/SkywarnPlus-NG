@@ -167,7 +167,7 @@ class PushOverNotifier:
             
             # Build URL with title for rich formatting
             url = f"https://alerts.weather.gov/details/{alert.id}"
-            url_title = f"View full alert details"
+            url_title = "View full alert details"
             
             # Additional parameters for emergency priority
             additional_params = {}

@@ -2,7 +2,6 @@
 SkyDescribe Manager - Handles generation and management of weather description audio files.
 """
 
-import asyncio
 import logging
 import re
 import subprocess
@@ -15,8 +14,7 @@ from dataclasses import dataclass
 from collections import OrderedDict
 
 from ..core.models import WeatherAlert
-from ..audio.tts_engine import GTTSEngine, TTSEngineError
-from ..audio.manager import AudioManager, AudioManagerError
+from ..audio.manager import AudioManager
 
 logger = logging.getLogger(__name__)
 
@@ -585,7 +583,7 @@ class SkyDescribeManager:
         logger.debug("\n\nSkyDescribe: Original description: %s", description)
 
         # If the description is not an error message, extract the alert title and modify
-        if not "Sky Describe error" in description:
+        if "Sky Describe error" not in description:
             if not alert_title:
                 # Try to find alert title from last_alerts
                 for alert, _ in alerts:

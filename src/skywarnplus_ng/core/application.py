@@ -16,18 +16,18 @@ from .models import WeatherAlert, AlertStatus
 from ..api.nws_client import NWSClient, NWSClientError
 from ..audio.manager import AudioManager, AudioManagerError
 from ..audio.tts_engine import TTSEngineError
-from ..audio.tail_message import TailMessageManager, TailMessageError
+from ..audio.tail_message import TailMessageManager
 from ..asterisk.manager import AsteriskManager, AsteriskError
-from ..asterisk.courtesy_tone import CourtesyToneManager, CourtesyToneError
-from ..asterisk.id_change import IDChangeManager, IDChangeError
-from ..utils.script_manager import ScriptManager, ScriptExecutionError
+from ..asterisk.courtesy_tone import CourtesyToneManager
+from ..asterisk.id_change import IDChangeManager
+from ..utils.script_manager import ScriptManager
 from ..utils.alertscript import AlertScriptManager
 from ..utils.logging import setup_logging, PerformanceLogger, AlertLogger
 from ..monitoring.health import HealthMonitor
 from ..database.manager import DatabaseManager, DatabaseError
 from ..web.server import WebDashboard
 from ..processing.pipeline import AlertProcessingPipeline, ProcessingStage
-from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, SeverityFilter, CustomRuleFilter
+from ..processing.filters import FilterChain, GeographicFilter, TimeFilter, SeverityFilter
 from ..processing.deduplication import AlertDeduplicator, DuplicateDetectionStrategy
 from ..processing.prioritization import AlertPrioritizer
 from ..processing.validation import AlertValidator
@@ -956,7 +956,6 @@ class SkywarnPlusApplication:
             # Clean up description files for this alert
             # Note: SkyDescribeManager may not always be initialized, so we clean up files directly
             try:
-                from ..skydescribe.manager import SkyDescribeManager
                 descriptions_dir = self.config.descriptions_dir
                 if descriptions_dir.exists():
                     # Use the cleanup method if we have access to SkyDescribeManager
@@ -1453,7 +1452,7 @@ class SkywarnPlusApplication:
                 county_audio_files,
             )
         else:
-            logger.info(f"County names disabled in configuration (with_county_names=False)")
+            logger.info("County names disabled in configuration (with_county_names=False)")
         
         if not self.audio_manager:
             logger.warning("Audio manager not available - skipping announcement")
@@ -1483,7 +1482,6 @@ class SkywarnPlusApplication:
                     if alert_id in self.state.get('last_alerts', {}):
                         alert_data = self.state['last_alerts'][alert_id]
                         # Reconstruct minimal alert for comparison
-                        from datetime import datetime
                         current_alert_objs.append({
                             'event': alert_data.get('event'),
                             'description': alert_data.get('description', ''),

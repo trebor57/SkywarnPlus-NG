@@ -5,10 +5,8 @@ Asterisk manager for SkywarnPlus-NG on ASL3.
 import asyncio
 import logging
 import os
-import socket
-import sys
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple
 
 from ..core.config import AsteriskConfig
 

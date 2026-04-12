@@ -3,7 +3,7 @@ Interactive API documentation generator for SkywarnPlus-NG.
 """
 
 import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 

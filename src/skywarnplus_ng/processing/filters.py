@@ -5,10 +5,9 @@ Advanced alert filtering system for SkywarnPlus-NG.
 import re
 import logging
 from datetime import datetime, timezone, time
-from typing import List, Dict, Any, Optional, Union, Callable
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
-import json
 
 from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
 

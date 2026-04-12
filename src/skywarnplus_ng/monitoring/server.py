@@ -2,15 +2,13 @@
 Simple HTTP server for health monitoring and metrics.
 """
 
-import asyncio
-import json
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Optional
 from aiohttp import web
 from aiohttp.web import Request, Response
 
-from .health import HealthMonitor, HealthStatus
+from .health import HealthMonitor
 
 
 class MonitoringServer:

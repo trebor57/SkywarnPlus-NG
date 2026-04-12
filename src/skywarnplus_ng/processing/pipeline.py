@@ -5,7 +5,7 @@ Core alert processing pipeline for SkywarnPlus-NG.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Callable, Awaitable
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 

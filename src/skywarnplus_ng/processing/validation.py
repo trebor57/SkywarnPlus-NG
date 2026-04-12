@@ -5,10 +5,9 @@ Alert validation and verification system for SkywarnPlus-NG.
 import logging
 import re
 from datetime import datetime, timezone, timedelta
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
-import json
 
 from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty, AlertStatus, AlertCategory
 

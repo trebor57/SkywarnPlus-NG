@@ -2,9 +2,8 @@
 Comprehensive API documentation generator for SkywarnPlus-NG.
 """
 
-import json
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime
 
 from .openapi import OpenAPIGenerator
@@ -113,7 +112,7 @@ class APIDocumentationGenerator:
             combined_file = lang_dir / f"all_examples.{self._get_file_extension(language)}"
             with open(combined_file, 'w', encoding='utf-8') as f:
                 f.write(f"# SkywarnPlus-NG API Examples - {language.title()}\n\n")
-                f.write(f"Complete collection of API examples for SkywarnPlus-NG.\n\n")
+                f.write("Complete collection of API examples for SkywarnPlus-NG.\n\n")
                 f.write(f"Base URL: {self.base_url}\n")
                 f.write(f"API Version: {self.version}\n\n")
                 

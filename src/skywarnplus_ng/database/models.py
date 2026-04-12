@@ -3,15 +3,11 @@ Database models for SkywarnPlus-NG.
 """
 
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
 from sqlalchemy import (
     Column, Integer, String, Text, Boolean, DateTime, 
-    Float, JSON, Index, UniqueConstraint, ForeignKey
+    Float, JSON, Index, ForeignKey
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
-import uuid
 
 Base = declarative_base()
 

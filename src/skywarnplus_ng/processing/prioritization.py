@@ -4,12 +4,12 @@ Alert prioritization and scoring system for SkywarnPlus-NG.
 
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Tuple
+from typing import List, Dict, Optional
 from dataclasses import dataclass
 from enum import Enum
 import math
 
-from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty
+from ..core.models import WeatherAlert
 
 logger = logging.getLogger(__name__)
 

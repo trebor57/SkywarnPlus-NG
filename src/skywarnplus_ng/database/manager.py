@@ -2,20 +2,18 @@
 Database manager for SkywarnPlus-NG.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any, Tuple
+from typing import List, Optional, Dict, Any
 from pathlib import Path
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
 from .models import (
     Base, AlertRecord, MetricRecord, HealthCheckRecord, 
-    ScriptExecutionRecord, ConfigurationRecord, AlertAnalytics
+    ScriptExecutionRecord
 )
 from ..core.models import WeatherAlert
 from ..core.config import AppConfig

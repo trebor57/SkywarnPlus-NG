@@ -5,10 +5,9 @@ Alert workflow automation system for SkywarnPlus-NG.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Callable, Awaitable, Union
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
-import json
 
 from ..core.models import WeatherAlert
 

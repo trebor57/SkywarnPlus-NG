@@ -10,7 +10,6 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import aiohttp
-import json
 
 from ..core.models import WeatherAlert
 from ..utils.url_security import validate_public_https_webhook_url
@@ -326,15 +325,6 @@ class WebhookNotifier:
     
     def _create_teams_alert_payload(self, alert: WeatherAlert, custom_message: Optional[str] = None) -> Dict[str, Any]:
         """Create Microsoft Teams webhook payload."""
-        # Determine color based on severity
-        color_map = {
-            "Minor": "warning",
-            "Moderate": "warning",
-            "Severe": "attention",
-            "Extreme": "attention"
-        }
-        color = color_map.get(alert.severity.value, "attention")
-        
         # Create facts
         facts = [
             {"name": "Area", "value": alert.area_desc},
@@ -565,7 +555,7 @@ class WebhookNotifier:
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
-            result = await self._send_webhook(test_payload)
+            await self._send_webhook(test_payload)
             self.logger.info(f"Webhook test successful for {self.config.provider.value}")
             return True
             

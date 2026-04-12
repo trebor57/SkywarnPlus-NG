@@ -3,7 +3,6 @@ SDK generator for SkywarnPlus-NG API.
 """
 
 import json
-from typing import Dict, Any, List, Optional
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 
@@ -120,7 +119,7 @@ pydantic>=2.0.0
     
     def generate_go_mod(self) -> str:
         """Generate go.mod for Go SDK."""
-        return f"""module github.com/skywarnplus-ng/sdk-go
+        return """module github.com/skywarnplus-ng/sdk-go
 
 go 1.21
 

@@ -10,7 +10,6 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 import aiohttp
-import json
 
 from ..core.models import WeatherAlert
 

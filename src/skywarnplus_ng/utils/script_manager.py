@@ -4,10 +4,9 @@ Script execution manager for SkywarnPlus-NG.
 
 import asyncio
 import logging
-import shlex
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 
 from ..core.config import ScriptConfig, ScriptsConfig
 from ..core.models import WeatherAlert

@@ -3,11 +3,9 @@ OpenAPI/Swagger specification generator for SkywarnPlus-NG.
 """
 
 import json
-from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from dataclasses import dataclass, field
 
-from ..core.models import WeatherAlert, AlertSeverity, AlertUrgency, AlertCertainty, AlertStatus, AlertCategory
 
 
 @dataclass

@@ -2,14 +2,13 @@
 DTMF Handler - Handles DTMF code processing and Asterisk integration.
 """
 
-import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-from .manager import SkyDescribeManager, DescriptionAudio
+from .manager import SkyDescribeManager
 
 logger = logging.getLogger(__name__)
 
@@ -159,7 +158,7 @@ class DTMFHandler:
             return DTMFResponse(
                 code=DTMFCode.CURRENT_ALERTS.value,
                 success=True,
-                message=f"Current alerts description generated",
+                message="Current alerts description generated",
                 audio_file=str(desc_audio.file_path),
                 duration_seconds=desc_audio.duration_seconds
             )

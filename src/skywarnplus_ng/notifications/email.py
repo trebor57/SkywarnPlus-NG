@@ -7,14 +7,13 @@ import smtplib
 import ssl
 import logging
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
-import json
 
 from ..core.models import WeatherAlert
 
