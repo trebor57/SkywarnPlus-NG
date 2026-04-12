@@ -196,13 +196,13 @@ class AlertsApiMixin:
 
             # Construct WeatherAlert model defensively
             try:
-                from ..core.models import WeatherAlert
+                from ...core.models import WeatherAlert
 
                 alert_model = WeatherAlert(**alert_data)
             except Exception:
                 # Fallback: minimal model using required fields
                 from datetime import datetime
-                from ..core.models import WeatherAlert
+                from ...core.models import WeatherAlert
 
                 minimal = {
                     "id": alert_data.get("id", alert_id),

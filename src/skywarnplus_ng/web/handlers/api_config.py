@@ -229,7 +229,7 @@ class ConfigApiMixin:
                 data = _fix_empty_numerics(data, _numeric_defaults, self.config)
 
                 # Create new config from the received data
-                from ..core.config import AppConfig
+                from ...core.config import AppConfig
 
                 updated_config = AppConfig(**data)
 

@@ -33,7 +33,7 @@ class NotificationsApiMixin:
                 return web.json_response({"error": "JSON body must be an object"}, status=400)
 
             # Import notification modules
-            from ..notifications.email import EmailNotifier, EmailConfig, EmailProvider
+            from ...notifications.email import EmailNotifier, EmailConfig, EmailProvider
 
             # Create email config
             provider = EmailProvider(data.get("provider", "gmail"))

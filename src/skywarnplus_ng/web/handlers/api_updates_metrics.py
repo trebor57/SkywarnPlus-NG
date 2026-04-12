@@ -319,7 +319,7 @@ class UpdatesMetricsApiMixin:
                     }
 
                     # Get alert statistics
-                    from ..processing.analytics import AnalyticsPeriod
+                    from ...processing.analytics import AnalyticsPeriod
 
                     period = AnalyticsPeriod.DAY if hours <= 24 else AnalyticsPeriod.WEEK
                     alert_stats = self.app.analytics.get_alert_statistics(period)
