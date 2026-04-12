@@ -1,0 +1,382 @@
+"""
+Notifications, subscribers, and templates API handlers mixin.
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+from typing import TYPE_CHECKING
+
+from aiohttp import web
+from aiohttp.web import Request, Response
+
+from ...notifications.subscriber import Subscriber, SubscriptionStatus
+from ...notifications.templates import (
+    NotificationTemplate,
+    TemplateFormat,
+    TemplateType,
+)
+
+if TYPE_CHECKING:
+    pass
+
+logger = logging.getLogger(__name__)
+
+
+class NotificationsApiMixin:
+    async def api_notifications_test_email_handler(self, request: Request) -> Response:
+        """Handle email connection test."""
+        try:
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            # Import notification modules
+            from ..notifications.email import EmailNotifier, EmailConfig, EmailProvider
+
+            # Create email config
+            provider = EmailProvider(data.get("provider", "gmail"))
+            email_config = EmailConfig(
+                provider=provider,
+                smtp_server=data.get("smtp_server", ""),
+                smtp_port=data.get("smtp_port", 587),
+                use_tls=data.get("use_tls", True),
+                use_ssl=data.get("use_ssl", False),
+                username=data.get("username", ""),
+                password=data.get("password", ""),
+                from_name=data.get("from_name", "SkywarnPlus-NG"),
+            )
+
+            # Test connection
+            notifier = EmailNotifier(email_config)
+            success = notifier.test_connection()
+
+            if success:
+                return web.json_response(
+                    {"success": True, "message": "Email connection test successful"}
+                )
+            else:
+                return web.json_response(
+                    {
+                        "success": False,
+                        "message": "Email connection test failed - check credentials and settings",
+                        "error": "Connection test failed",
+                    }
+                )
+
+        except Exception as e:
+            logger.error(f"Error testing email connection: {e}")
+            return web.json_response({"success": False, "error": str(e)}, status=500)
+
+    async def api_notifications_subscribers_handler(self, request: Request) -> Response:
+        """Handle subscribers list endpoint."""
+        try:
+            subscriber_manager = self._get_subscriber_manager()
+            subscribers = subscriber_manager.get_all_subscribers()
+
+            # Convert to dict format for JSON response
+            subscribers_data = [subscriber.to_dict() for subscriber in subscribers]
+
+            return web.json_response(subscribers_data)
+
+        except Exception as e:
+            logger.error(f"Error getting subscribers: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_add_subscriber_handler(self, request: Request) -> Response:
+        """Handle add subscriber endpoint."""
+        try:
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+            subscriber_id = data.get("subscriber_id") or str(uuid.uuid4())
+            name = (data.get("name") or "").strip()
+            email = (data.get("email") or "").strip()
+
+            if not name or not email:
+                return web.json_response(
+                    {"success": False, "error": "Name and email are required"},
+                    status=400,
+                )
+
+            try:
+                status = SubscriptionStatus(data.get("status", "active"))
+            except ValueError:
+                status = SubscriptionStatus.ACTIVE
+
+            preferences = self._parse_subscription_preferences(data)
+
+            wh_err = self._subscriber_webhook_validation_error(data.get("webhook_url"))
+            if wh_err:
+                return web.json_response(
+                    {"success": False, "error": wh_err},
+                    status=400,
+                )
+            wh_raw = data.get("webhook_url")
+            webhook_clean = (
+                str(wh_raw).strip() if wh_raw is not None and str(wh_raw).strip() else None
+            )
+
+            subscriber = Subscriber(
+                subscriber_id=subscriber_id,
+                name=name,
+                email=email,
+                status=status,
+                preferences=preferences,
+                phone=data.get("phone"),
+                webhook_url=webhook_clean,
+                push_tokens=self._normalize_list(data.get("push_tokens")),
+            )
+
+            # Add subscriber
+            subscriber_manager = self._get_subscriber_manager()
+            success = subscriber_manager.add_subscriber(subscriber)
+
+            if success:
+                return web.json_response(
+                    {
+                        "success": True,
+                        "message": "Subscriber added successfully",
+                        "subscriber_id": subscriber.subscriber_id,
+                    }
+                )
+            else:
+                return web.json_response(
+                    {"success": False, "error": "Failed to add subscriber"}, status=400
+                )
+
+        except Exception as e:
+            logger.error(f"Error adding subscriber: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_update_subscriber_handler(self, request: Request) -> Response:
+        """Handle update subscriber endpoint."""
+        try:
+            subscriber_id = request.match_info["subscriber_id"]
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            # Get existing subscriber
+            subscriber_manager = self._get_subscriber_manager()
+            subscriber = subscriber_manager.get_subscriber(subscriber_id)
+
+            if not subscriber:
+                return web.json_response({"error": "Subscriber not found"}, status=404)
+
+            # Update subscriber data
+            if "name" in data:
+                subscriber.name = data["name"].strip()
+            if "email" in data:
+                subscriber.email = data["email"].strip()
+            if "status" in data:
+                try:
+                    subscriber.status = SubscriptionStatus(data["status"])
+                except ValueError:
+                    pass
+            if "phone" in data:
+                subscriber.phone = data["phone"]
+            if "webhook_url" in data:
+                wh_err = self._subscriber_webhook_validation_error(data["webhook_url"])
+                if wh_err:
+                    return web.json_response({"error": wh_err}, status=400)
+                wu = data["webhook_url"]
+                subscriber.webhook_url = (
+                    str(wu).strip() if wu is not None and str(wu).strip() else None
+                )
+            if "push_tokens" in data:
+                subscriber.push_tokens = self._normalize_list(data.get("push_tokens"))
+
+            # Update preferences if provided
+            preference_keys = set(data.keys()).intersection(self.PREFERENCE_FIELDS)
+            if "preferences" in data or preference_keys:
+                subscriber.preferences = self._parse_subscription_preferences(
+                    data, existing=subscriber.preferences
+                )
+
+            # Save updated subscriber
+            success = subscriber_manager.update_subscriber(subscriber)
+
+            if success:
+                return web.json_response(
+                    {"success": True, "message": "Subscriber updated successfully"}
+                )
+            else:
+                return web.json_response(
+                    {"success": False, "error": "Failed to update subscriber"}, status=400
+                )
+
+        except Exception as e:
+            logger.error(f"Error updating subscriber: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_delete_subscriber_handler(self, request: Request) -> Response:
+        """Handle delete subscriber endpoint."""
+        try:
+            subscriber_id = request.match_info["subscriber_id"]
+
+            # Delete subscriber
+            subscriber_manager = self._get_subscriber_manager()
+            success = subscriber_manager.remove_subscriber(subscriber_id)
+
+            if success:
+                return web.json_response(
+                    {"success": True, "message": "Subscriber deleted successfully"}
+                )
+            else:
+                return web.json_response(
+                    {"success": False, "error": "Subscriber not found"}, status=404
+                )
+
+        except Exception as e:
+            logger.error(f"Error deleting subscriber: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_templates_handler(self, request: Request) -> Response:
+        """Handle templates list endpoint."""
+        try:
+            template_engine = self._get_template_engine()
+            templates = template_engine.get_available_templates()
+            return web.json_response(templates)
+
+        except Exception as e:
+            logger.error(f"Error getting templates: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_template_detail_handler(self, request: Request) -> Response:
+        """Handle template detail endpoint."""
+        try:
+            template_id = request.match_info["template_id"]
+            template_engine = self._get_template_engine()
+            template = template_engine.get_template_data(template_id)
+            if not template:
+                return web.json_response({"error": "Template not found"}, status=404)
+            return web.json_response(template)
+        except Exception as e:
+            logger.error(f"Error getting template {template_id}: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_add_template_handler(self, request: Request) -> Response:
+        """Handle add template endpoint."""
+        try:
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            template_engine = self._get_template_engine()
+            template_type_value = (data.get("template_type") or "email").lower()
+            format_value = (data.get("format") or "text").lower()
+            try:
+                template_type = TemplateType(template_type_value)
+                template_format = TemplateFormat(format_value)
+            except ValueError:
+                return web.json_response({"error": "Invalid template type or format"}, status=400)
+
+            template = NotificationTemplate(
+                template_id=data.get("template_id", str(uuid.uuid4())),
+                name=data.get("name", ""),
+                description=data.get("description", ""),
+                template_type=template_type,
+                format=template_format,
+                subject_template=data.get("subject_template", ""),
+                body_template=data.get("body_template", ""),
+                enabled=data.get("enabled", True),
+            )
+
+            template_engine.add_template(template)
+
+            return web.json_response(
+                {
+                    "success": True,
+                    "message": "Template added successfully",
+                    "template_id": template.template_id,
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Error adding template: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_update_template_handler(self, request: Request) -> Response:
+        """Handle update template endpoint."""
+        try:
+            template_id = request.match_info["template_id"]
+            data = await request.json()
+            if not isinstance(data, dict):
+                return web.json_response({"error": "JSON body must be an object"}, status=400)
+
+            template_engine = self._get_template_engine()
+            template = template_engine.get_template(template_id)
+
+            if not template:
+                return web.json_response({"error": "Template not found"}, status=404)
+
+            # Update template data
+            if "name" in data:
+                template.name = data["name"]
+            if "description" in data:
+                template.description = data["description"]
+            if "template_type" in data:
+                try:
+                    template.template_type = TemplateType((data["template_type"] or "").lower())
+                except ValueError:
+                    return web.json_response({"error": "Invalid template type"}, status=400)
+            if "format" in data:
+                try:
+                    template.format = TemplateFormat((data["format"] or "").lower())
+                except ValueError:
+                    return web.json_response({"error": "Invalid template format"}, status=400)
+            if "subject_template" in data:
+                template.subject_template = data["subject_template"]
+            if "body_template" in data:
+                template.body_template = data["body_template"]
+            if "enabled" in data:
+                template.enabled = data["enabled"]
+
+            # Update template
+            template_engine.add_template(template)
+
+            return web.json_response({"success": True, "message": "Template updated successfully"})
+
+        except Exception as e:
+            logger.error(f"Error updating template: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_delete_template_handler(self, request: Request) -> Response:
+        """Handle delete template endpoint."""
+        try:
+            template_id = request.match_info["template_id"]
+
+            template_engine = self._get_template_engine()
+            template = template_engine.get_template(template_id)
+            if not template:
+                return web.json_response({"error": "Template not found"}, status=404)
+
+            try:
+                template_engine.remove_template(template_id)
+            except ValueError as exc:
+                return web.json_response({"error": str(exc)}, status=400)
+
+            return web.json_response({"success": True, "message": "Template deleted successfully"})
+
+        except Exception as e:
+            logger.error(f"Error deleting template: {e}")
+            return web.json_response({"error": str(e)}, status=500)
+
+    async def api_notifications_stats_handler(self, request: Request) -> Response:
+        """Handle notification statistics endpoint."""
+        try:
+            subscriber_manager = self._get_subscriber_manager()
+            subscriber_stats = subscriber_manager.get_subscriber_stats()
+            stats = {
+                "subscribers": subscriber_stats,
+                "notifiers": {"email": 0, "webhook": 0, "push": 0},
+                "delivery_queue": {"total_items": 0, "pending": 0, "sent": 0, "failed": 0},
+            }
+
+            return web.json_response(stats)
+
+        except Exception as e:
+            logger.error(f"Error getting notification stats: {e}")
+            return web.json_response({"error": str(e)}, status=500)
