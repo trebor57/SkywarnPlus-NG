@@ -12,6 +12,7 @@ from typing import List, Optional, Dict, Any
 
 from ..core.config import AudioConfig, TTSConfig
 from ..core.models import WeatherAlert
+from ..utils.cap_speech import prepare_cap_text_for_tts
 from .tts_engine import GTTSEngine, PiperTSEngine, TTSEngineError
 from .audio_utils import AudioSegment
 
@@ -161,6 +162,7 @@ class AudioManager:
         suffix_file: Optional[str] = None,
         county_audio_files: Optional[List[str]] = None,
         with_multiples: bool = False,
+        include_cap_description: bool = False,
     ) -> Optional[Path]:
         """
         Generate audio for a weather alert.
@@ -170,13 +172,16 @@ class AudioManager:
             suffix_file: Optional suffix audio file to append
             county_audio_files: Optional list of county audio file names to append
             with_multiples: Whether to add "with multiples" tag
+            include_cap_description: If True, append normalized CAP description (e.g. dashboard preview)
 
         Returns:
             Path to generated audio file, or None if generation failed
         """
         try:
             # Create alert text
-            alert_text = self._create_alert_text(alert)
+            alert_text = self._create_alert_text(
+                alert, include_cap_description=include_cap_description
+            )
             if with_multiples:
                 alert_text += ", with multiples"
             logger.info(f"Generating audio for alert: {alert.event}")
@@ -340,20 +345,30 @@ class AudioManager:
             logger.error(f"Unexpected error generating all-clear audio: {e}", exc_info=True)
             return None
 
-    def _create_alert_text(self, alert: WeatherAlert) -> str:
+    def _create_alert_text(
+        self, alert: WeatherAlert, *, include_cap_description: bool = False
+    ) -> str:
         """
         Create text for alert announcement.
 
-        Only announces the alert type, matching original SkywarnPlus behavior.
+        By default only the alert type is spoken (original SkywarnPlus behavior).
 
         Args:
             alert: Weather alert
+            include_cap_description: Append TTS-normalized CAP description text
 
         Returns:
             Text to be spoken
         """
-        # Only announce the alert type, just like the original SkywarnPlus
-        return f"Weather alert: {alert.event}"
+        base = f"Weather alert: {alert.event}"
+        if not include_cap_description:
+            return base
+        raw = (alert.description or "").strip()
+        if not raw:
+            return base
+        # Longer limit than SkyDescribe default so dashboard preview covers more detail
+        spoken = prepare_cap_text_for_tts(raw, max_words=250)
+        return f"{base}. {spoken}" if spoken else base
 
     def get_alert_sound_path(self) -> Optional[Path]:
         """

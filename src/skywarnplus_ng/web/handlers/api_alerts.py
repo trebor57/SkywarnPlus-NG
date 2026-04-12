@@ -227,9 +227,11 @@ class AlertsApiMixin:
                         county_codes_list, area_desc=area_desc
                     )
 
-            # Generate audio file with county audio if enabled
+            # Generate audio file with county audio if enabled; include CAP description for preview
             audio_path = self.app.audio_manager.generate_alert_audio(
-                alert_model, county_audio_files=county_audio_files
+                alert_model,
+                county_audio_files=county_audio_files,
+                include_cap_description=True,
             )
             if not audio_path or not audio_path.exists():
                 return web.json_response({"error": "Failed to generate audio"}, status=500)

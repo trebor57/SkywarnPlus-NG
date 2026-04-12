@@ -3,7 +3,6 @@ SkyDescribe Manager - Handles generation and management of weather description a
 """
 
 import logging
-import re
 import subprocess
 import wave
 import contextlib
@@ -15,6 +14,7 @@ from collections import OrderedDict
 
 from ..core.models import WeatherAlert
 from ..audio.manager import AudioManager
+from ..utils.cap_speech import prepare_cap_text_for_tts
 
 logger = logging.getLogger(__name__)
 
@@ -141,103 +141,7 @@ class SkyDescribeManager:
         Returns:
             The modified description text.
         """
-        # Remove newline characters and replace multiple spaces with a single space
-        description = description.replace("\n", " ")
-        description = re.sub(r"\s+", " ", description)
-
-        # Replace some common weather abbreviations and symbols
-        abbreviations = {
-            r"\bmph\b": "miles per hour",
-            r"\bknots\b": "nautical miles per hour",
-            r"\bNm\b": "nautical miles",
-            r"\bnm\b": "nautical miles",
-            r"\bft\.\b": "feet",
-            r"\bin\.\b": "inches",
-            r"\bm\b": "meter",
-            r"\bkm\b": "kilometer",
-            r"\bmi\b": "mile",
-            r"\b%\b": "percent",
-            r"\bN\b": "north",
-            r"\bS\b": "south",
-            r"\bE\b": "east",
-            r"\bW\b": "west",
-            r"\bNE\b": "northeast",
-            r"\bNW\b": "northwest",
-            r"\bSE\b": "southeast",
-            r"\bSW\b": "southwest",
-            r"\bF\b": "Fahrenheit",
-            r"\bC\b": "Celsius",
-            r"\bUV\b": "ultraviolet",
-            r"\bgusts up to\b": "gusts of up to",
-            r"\bhrs\b": "hours",
-            r"\bhr\b": "hour",
-            r"\bmin\b": "minute",
-            r"\bsec\b": "second",
-            r"\bsq\b": "square",
-            r"\bw/\b": "with",
-            r"\bc/o\b": "care of",
-            r"\bblw\b": "below",
-            r"\babv\b": "above",
-            r"\bavg\b": "average",
-            r"\bfr\b": "from",
-            r"\bto\b": "to",
-            r"\btill\b": "until",
-            r"\bb/w\b": "between",
-            r"\bbtwn\b": "between",
-            r"\bN/A\b": "not available",
-            r"\b&\b": "and",
-            r"\b\+\b": "plus",
-            r"\be\.g\.\b": "for example",
-            r"\bi\.e\.\b": "that is",
-            r"\best\.\b": "estimated",
-            r"\b\.\.\.\b": ".",
-            r"\b\n\n\b": ".",
-            r"\b\n\b": ".",
-            r"\bEDT\b": "eastern daylight time",
-            r"\bEST\b": "eastern standard time",
-            r"\bCST\b": "central standard time",
-            r"\bCDT\b": "central daylight time",
-            r"\bMST\b": "mountain standard time",
-            r"\bMDT\b": "mountain daylight time",
-            r"\bPST\b": "pacific standard time",
-            r"\bPDT\b": "pacific daylight time",
-            r"\bAKST\b": "Alaska standard time",
-            r"\bAKDT\b": "Alaska daylight time",
-            r"\bHST\b": "Hawaii standard time",
-            r"\bHDT\b": "Hawaii daylight time",
-        }
-        for abbr, full in abbreviations.items():
-            description = re.sub(abbr, full, description)
-
-        # Remove '*' characters
-        description = description.replace("*", "")
-
-        # Replace '  ' with a single space
-        description = re.sub(r"\s\s+", " ", description)
-
-        # Replace '. . . ' with a single space. The \s* takes care of any number of spaces.
-        description = re.sub(r"\.\s*\.\s*\.\s*", " ", description)
-
-        # Correctly format time mentions in 12-hour format (add colon) and avoid adding spaces in these
-        description = re.sub(r"(\b\d{1,2})(\d{2}\s*[AP]M)", r"\1:\2", description)
-
-        # Remove spaces between numbers and "pm" or "am"
-        description = re.sub(r"(\d) (\s*[AP]M)", r"\1\2", description)
-
-        # Only separate numerical sequences followed by a letter, and avoid adding spaces in multi-digit numbers
-        description = re.sub(r"(\d)(?=[A-Za-z])", r"\1 ", description)
-
-        # Replace any remaining ... with a single period
-        description = re.sub(r"\.\s*", ". ", description).strip()
-
-        # Limit the description to a maximum number of words
-        words = description.split()
-        logger.debug(f"SkyDescribe: Description has {len(words)} words.")
-        if len(words) > self.max_words:
-            description = " ".join(words[: self.max_words])
-            logger.info(f"SkyDescribe: Description has been limited to {self.max_words} words.")
-
-        return description
+        return prepare_cap_text_for_tts(description, max_words=self.max_words)
 
     def _create_description_text(self, alert: WeatherAlert) -> str:
         """

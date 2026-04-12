@@ -355,7 +355,7 @@
                     <div class="flex items-center space-x-2">
                         ${alert.announced ? '<span class="text-green-500" title="Announced">📢</span>' : ''}
                         ${alert.script_executed ? '<span class="text-blue-500" title="Script Executed">⚙️</span>' : ''}
-                        <button type="button" class="btn-secondary text-sm" title="Play announcement" onclick='playAlertAudio(${JSON.stringify(String(alert.id))})'>
+                        <button type="button" class="btn-secondary text-sm" title="Play announcement (title and description)" onclick='playAlertAudio(${JSON.stringify(String(alert.id))})'>
                             ▶️ Play
                         </button>
                     </div>
