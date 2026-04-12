@@ -39,22 +39,6 @@
         </div>
     </div>
 
-    <!-- Connectivity summary -->
-    <div id="connectivity-strip" class="mb-6 flex flex-wrap gap-3 text-sm" aria-label="Service connectivity">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-nws-dot" aria-hidden="true"></span>
-            <span class="text-gray-700 dark:text-gray-300">NWS client: <strong id="conn-nws-text">—</strong></span>
-        </span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-asterisk-dot" aria-hidden="true"></span>
-            <span class="text-gray-700 dark:text-gray-300">Asterisk: <strong id="conn-asterisk-text">—</strong></span>
-        </span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-            <span class="w-2 h-2 rounded-full bg-gray-400" id="conn-audio-dot" aria-hidden="true"></span>
-            <span class="text-gray-700 dark:text-gray-300">Audio: <strong id="conn-audio-text">—</strong></span>
-        </span>
-    </div>
-
     <div id="nws-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
         <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">NWS feed warning</p>
         <p id="nws-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
@@ -135,11 +119,13 @@
             </div>
         </div>
 
-        <!-- System Health -->
+        <!-- Service status (NWS, Asterisk, Audio, scripts, database; avoids duplicating a separate top summary) -->
         <div>
             <div class="card">
-                <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">System Health</h2>
-                
+                <div class="flex flex-wrap items-baseline justify-between gap-2 mb-6">
+                    <h2 class="text-xl font-semibold text-gray-900 dark:text-white">System Health</h2>
+                    <a href="{{ base_path|default('') }}/health" class="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline shrink-0">Full details</a>
+                </div>
                 <div id="health-components">
                     <div class="text-center py-4">
                         <div class="loading-spinner mx-auto mb-2"></div>
@@ -191,36 +177,6 @@
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
-    }
-
-    function setConnDot(id, ok) {
-        var d = document.getElementById(id);
-        if (!d) return;
-        d.className = 'w-2 h-2 rounded-full ' + (ok ? 'bg-green-500' : 'bg-gray-400');
-    }
-
-    function updateConnectivityStrip(status) {
-        if (!status) return;
-        var nwsOk = !!status.nws_connected;
-        var astEnabled = !!status.asterisk_enabled;
-        var astOk = astEnabled && !!status.asterisk_available;
-        var audioOk = !!status.audio_available;
-
-        setConnDot('conn-nws-dot', nwsOk);
-        var nt = document.getElementById('conn-nws-text');
-        if (nt) nt.textContent = nwsOk ? 'Connected' : 'Not connected';
-
-        setConnDot('conn-asterisk-dot', astOk);
-        var at = document.getElementById('conn-asterisk-text');
-        if (at) {
-            if (!astEnabled) at.textContent = 'Disabled in config';
-            else if (astOk) at.textContent = 'Available';
-            else at.textContent = 'Not available';
-        }
-
-        setConnDot('conn-audio-dot', audioOk);
-        var ot = document.getElementById('conn-audio-text');
-        if (ot) ot.textContent = audioOk ? 'Available' : 'Not available';
     }
 
     function updateNwsFetchWarning(status) {
@@ -279,7 +235,6 @@
             statusElement.textContent = 'Stopped';
             indicatorElement.className = 'status-indicator status-unhealthy';
         }
-        updateConnectivityStrip(status);
         updateNwsFetchWarning(status);
     }
 
@@ -428,7 +383,7 @@
             <div class="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
                 <div class="flex items-center space-x-3">
                     <div class="status-indicator status-${comp.status.toLowerCase()}"></div>
-                    <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace('_', ' ').toUpperCase()}</span>
+                    <span class="text-sm font-medium text-gray-900 dark:text-white">${comp.name.replace(/_/g, ' ').toUpperCase()}</span>
                 </div>
                 <div class="text-right">
                     <p class="text-xs text-gray-500 dark:text-gray-400">${comp.message}</p>
