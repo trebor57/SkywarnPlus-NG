@@ -15,16 +15,7 @@ Modern weather alert system for Asterisk/app_rpt nodes with DTMF integration.
 
 SkywarnPlus-NG is a complete rewrite of the original [SkywarnPlus](https://github.com/Mason10198/SkywarnPlus) project by [Mason Nelson (N5LSN/WRKF394)](https://github.com/Mason10198). This rewrite modernizes the codebase, adds a web dashboard, and improves maintainability while preserving the core concept and functionality of the original project. We extend our gratitude to Mason Nelson for the original idea and implementation that inspired this project.
 
-### What's New in 1.0.7
-
-- **Dashboard**: Last NWS poll shows **local date and time** (plus a short “ago” line and UTC in the tooltip) so you can tell exactly when polling last succeeded. **System Health** is the single service-status panel (duplicate top connectivity strip removed); link to the full health page remains.
-- **CI**: GitHub Actions updated to **actions/checkout@v5** and **actions/setup-python@v6** (Node 24–ready action runtimes).
-- **Code quality**: Web dashboard server refactored into **handler mixins** under `web/handlers/` for easier maintenance.
-
-### Earlier in 1.0.x
-
-- **1.0.6**: Optional GitHub release check (dashboard banner), dashboard UX polish, explicit `packaging` dependency for version comparison.
-- **1.0.5**: Dashboard login bcrypt (`$2y$` compatible), Tailwind/CSS and WebSocket proxy notes, rate limits and subscriber webhook URL validation.
+Per-version changes are described on [GitHub Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) (generated release notes and assets).
 
 ## Before you install (read this first)
 

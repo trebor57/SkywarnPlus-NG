@@ -1,11 +1,12 @@
 # Build release tarball and attach to GitHub Release when a version tag is pushed.
 #
 # Before tagging:
-#   1. Bump version in pyproject.toml and src/skywarnplus_ng/__init__.py to match (e.g. 1.0.6).
-#   2. Commit, then: git tag -a v1.0.6 -m "Release v1.0.6" && git push && git push origin v1.0.6
+#   1. Bump version in pyproject.toml and src/skywarnplus_ng/__init__.py to match the tag.
+#   2. Commit, then: git tag -a vX.Y.Z -m "Release vX.Y.Z" && git push && git push origin vX.Y.Z
 # This workflow: verifies pyproject.toml version matches tag, updates README.md download URLs
-# to this release, runs create_release.py (tarball includes updated README), creates the GitHub
-# Release and uploads the tarball.
+# for this release, runs create_release.py (tarball includes updated README), creates the GitHub
+# Release with generate_release_notes, and uploads the tarball. Release notes live on GitHub—
+# do not maintain a "What's New" section in README.
 
 name: Release
 
@@ -51,8 +52,6 @@ jobs:
           # Update tarball filenames and directory names in code blocks
           sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
           sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
-          # Update "What's New in X.Y.Z" section header if present
-          sed -i "s|What's New in [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|What's New in ${VERSION}|g" README.md
 
       - name: Create release tarball
         run: python3 scripts/create_release.py
@@ -78,7 +77,6 @@ jobs:
           sed -i "s|releases/download/v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*/skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|releases/download/${TAG}/skywarnplus-ng-${VERSION}.tar.gz|g" README.md
           sed -i "s|skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\.tar\.gz|skywarnplus-ng-${VERSION}.tar.gz|g" README.md
           sed -i "s|cd skywarnplus-ng-[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|cd skywarnplus-ng-${VERSION}|g" README.md
-          sed -i "s|What's New in [0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*|What's New in ${VERSION}|g" README.md
           if git diff --quiet README.md; then
             echo "README.md already matches ${TAG}; nothing to push."
           else
