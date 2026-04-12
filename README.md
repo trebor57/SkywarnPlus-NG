@@ -34,7 +34,7 @@ These trip people up most often:
 | **Asterisk user** | The installer expects the **`asterisk`** user to exist (standard on AllStar / Asterisk nodes). Install Asterisk first, or the script will exit with an error. |
 | **Do not run `install.sh` as root** | Run it as a normal user; the script uses `sudo` where needed. |
 | **Python** | **Python 3.11 or newer** is required. Debian 13 ships **Python 3.13**, which is what we test most. |
-| **`/var/tmp` must not be tmpfs** | Before running **`install.sh`**, **`/var/tmp` must not be mounted as tmpfs** (use a normal disk-backed directory). Some install steps and package tools use **`/var/tmp`**; a small RAM-backed mount often causes **out of space** failures. Remount or change **`/etc/fstab`** / distro defaults so **`/var/tmp`** is on disk, then reboot if needed. |
+| **`/var/tmp` and pip temp space** | **`install.sh`** sets **`TMPDIR`** to **`/var/tmp`** (overridable with **`SKYWARN_TMPDIR`**) while creating the venv and running **pip**, so large wheels (e.g. **scipy**) do not fill a small **`/tmp`** tmpfs. **`/var/tmp`** should be **disk-backed** and have enough free space. If **`/var/tmp`** is tmpfs or too small, set e.g. **`SKYWARN_TMPDIR=/var/lib/skywarnplus-ng/tmp`** and create that directory before installing. |
 | **Release tarball** | Use a [GitHub release](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) tarball. The repo includes a pre-built `tailwind.css`; if you build from a **minimal** git checkout without that file, the installer will warn you—run `npm install && npm run build:css` (see [Web dashboard CSS](#web-dashboard-css-for-developers)) and copy `src/` again, or use an official release. |
 
 ## Quick Start
@@ -102,7 +102,7 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 
 ## Installation steps (detail)
 
-**Filesystem:** **`/var/tmp` must not be tmpfs** before `./install.sh` (see [Before you install](#before-you-install-read-this-first)). Use disk-backed **`/var/tmp`** if yours is currently tmpfs.
+**Filesystem / temp:** **`install.sh`** uses **`TMPDIR=${SKYWARN_TMPDIR:-/var/tmp}`** for **pip** and the venv so downloads are not written to a tiny **`/tmp`** tmpfs (common on ARM/ASL nodes). Use a disk-backed, spacious **`/var/tmp`**, or override **`SKYWARN_TMPDIR`**. See the table in [Before you install](#before-you-install-read-this-first).
 
 1. **Download** the `.tar.gz` for your version from [Releases](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases). Verify **SHA256** on the release page if you use checksums.
 
@@ -166,6 +166,8 @@ After changing **`base_path` or proxy settings**, restart: **`sudo systemctl res
 
 - **`poll_interval`** (seconds) controls how often alerts are fetched (default **60** in `default.yaml`).
 - The app identifies itself to api.weather.gov with a **`User-Agent`**; do not use a generic placeholder that violates NWS policy.
+- **Failed NWS fetch:** If a poll cannot reach the API (network error, timeout, etc.), the app **keeps the previous alert list** and logs a warning. The dashboard can still show “old” alerts until the next **successful** fetch; check **`journalctl -u skywarnplus-ng`** if behavior seems stuck after an outage.
+- **`alerts.time_type`:** With **`onset`**, an alert’s active window uses **`onset`** … **`ends`** (if present) else **`expires`**. With **`effective`**, the window uses **`effective`** … **`expires`**. The UI may show an **Expires** time that differs from **`ends`**; cancellation products with **`urgency: Past`** (or “cancelled” in the headline) are **dropped immediately** and are not held until **`ends`**.
 
 ### Email notifications (Gmail)
 
@@ -181,6 +183,11 @@ Configure which counties each Asterisk node monitors so one server can serve dif
 
 - **Web UI:** Configuration → Asterisk → per-node counties.
 - **YAML:** See commented examples in **`config/default.yaml`**.
+
+### AlertScript (BASH / DTMF)
+
+- **BASH** commands run as **`/bin/bash -c`**. Placeholders **`{alert_title}`**, **`{alert_id}`**, **`{alert_event}`**, **`{alert_area}`**, **`{alert_counties}`** are filled from NWS data using **shell quoting**, so strange characters in alert text cannot break out of the substituted argument (command injection from CAP text is mitigated). Your **static** command text is still trusted—only insert placeholders where you intend NWS content.
+- **DTMF** commands are sent to Asterisk **`rpt fun`**. After substitution, the string must match **digits and DTMF letters only** (`0-9`, `*`, `#`, `A`–`D`); longer or shell-like strings are **skipped** with a log line. Use **fixed** DTMF sequences in config; do not rely on **`{alert_event}`** for DTMF unless the substituted value is a safe sequence.
 
 ## Features
 
@@ -224,6 +231,19 @@ File logging (if enabled) is under **`/var/log/skywarnplus-ng/`** per `logging.f
 | **Dashboard reconnects / many `/ws` lines in logs** | Add long **`proxy_*_timeout`** for the WebSocket location and ensure **`base_path`** matches; the app sends protocol-level WebSocket pings to help idle proxies. |
 | **Cannot log in after editing YAML** | Password must be a **bcrypt** hash if set manually; easiest fix is to set password again from the UI or restore from backup. |
 | **“Dashboard stylesheet missing” during install** | Use an official release tarball or run **`npm install && npm run build:css`** before packaging (see below). |
+| **pip: No space left on device during install** | Often **`/tmp`** is a small tmpfs while **`df /`** looks fine. **`install.sh`** directs pip to **`/var/tmp`** via **`TMPDIR`**; confirm **`df -h /var/tmp`** (or set **`SKYWARN_TMPDIR`** to a directory on a large disk). |
+
+## Development
+
+From a git checkout (with **pip** and Python **3.11+**):
+
+```bash
+python -m pip install -e ".[dev]"
+ruff check src tests
+pytest tests/ -v
+```
+
+CI runs **Ruff** and **pytest** on **Python 3.11–3.13** for pushes and pull requests to **`main`**.
 
 ## Web dashboard CSS (for developers)
 

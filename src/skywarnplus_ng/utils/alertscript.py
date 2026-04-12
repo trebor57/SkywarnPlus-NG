@@ -4,19 +4,31 @@ Enhanced AlertScript manager for SkywarnPlus-NG.
 Supports mapping-based alert-to-command execution with advanced features:
 - ClearCommands: Execute when alerts clear
 - ActiveCommands/InactiveCommands: Transition-based commands
-- {alert_title} placeholder substitution
-- Multi-node DTMF support
+- {alert_title} placeholder substitution (values are shell-quoted for BASH)
+- Multi-node DTMF support (DTMF strings validated after substitution)
 - Match: ALL vs Match: ANY logic
 """
 
 import asyncio
-import logging
-import subprocess
 import fnmatch
-from typing import Dict, List, Optional, Set, Any
+import logging
+import re
+import shlex
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
-from ..core.models import WeatherAlert
+from ..core.models import (
+    AlertCategory,
+    AlertCertainty,
+    AlertSeverity,
+    AlertStatus,
+    AlertUrgency,
+    WeatherAlert,
+)
+
+# Allowed characters for Asterisk `rpt fun` DTMF argument (digits + DTMF letters).
+_DTMF_COMMAND_PATTERN = re.compile(r"^[0-9*#A-Da-d]{1,128}$")
 
 logger = logging.getLogger(__name__)
 
@@ -164,38 +176,57 @@ class AlertScriptManager:
         if self.enabled:
             logger.info(f"AlertScript manager initialized with {len(self.mappings)} mappings")
 
-    def _substitute_placeholders(self, command: str, alert: Optional[WeatherAlert] = None) -> str:
+    @staticmethod
+    def _substitute_placeholders(
+        command: str, alert: Optional[WeatherAlert] = None, *, shell_quoting: bool = True
+    ) -> str:
         """
         Substitute placeholders in command string.
+
+        For BASH, values are passed through :func:`shlex.quote` so NWS text cannot
+        inject shell syntax. For DTMF, values are inserted raw; the full string is
+        then validated with :meth:`_dtmf_command_is_safe`.
 
         Args:
             command: Command string with placeholders
             alert: Optional alert for placeholder substitution
+            shell_quoting: If True (BASH), quote substituted values
 
         Returns:
             Command string with placeholders replaced
         """
         if alert:
-            command = command.replace("{alert_title}", alert.event)
-            command = command.replace("{alert_id}", alert.id)
-            command = command.replace("{alert_event}", alert.event)
-            command = command.replace("{alert_area}", alert.area_desc)
-            command = command.replace("{alert_counties}", ",".join(alert.county_codes))
+            q = shlex.quote if shell_quoting else str
+            command = command.replace("{alert_title}", q(alert.event))
+            command = command.replace("{alert_id}", q(alert.id))
+            command = command.replace("{alert_event}", q(alert.event))
+            command = command.replace("{alert_area}", q(alert.area_desc))
+            command = command.replace("{alert_counties}", q(",".join(alert.county_codes)))
         return command
+
+    @staticmethod
+    def _dtmf_command_is_safe(cmd: str) -> bool:
+        """Reject DTMF strings that are not safe to pass to Asterisk ``rpt fun``."""
+        s = cmd.strip()
+        if not s:
+            return False
+        return bool(_DTMF_COMMAND_PATTERN.fullmatch(s))
 
     async def _execute_bash_command(self, command: str) -> bool:
         """
-        Execute a bash command.
+        Execute a bash command via ``/bin/bash -c`` (no shell parsing of argv[0]).
 
         Args:
-            command: Command to execute
+            command: Full command string after placeholder substitution
 
         Returns:
             True if command executed successfully
         """
         try:
             logger.info(f"AlertScript: Executing BASH command: {command}")
-            process = await asyncio.create_subprocess_shell(
+            process = await asyncio.create_subprocess_exec(
+                "/bin/bash",
+                "-c",
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -226,9 +257,17 @@ class AlertScriptManager:
             True if command executed successfully
         """
         try:
+            if not self._dtmf_command_is_safe(command):
+                logger.warning(
+                    "AlertScript: Skipping unsafe or invalid DTMF command for node %s: %r",
+                    node,
+                    command,
+                )
+                return False
+
             dtmf_cmd = f'rpt fun {node} {command}'
             logger.info(f"AlertScript: Executing DTMF command on node {node}: {command}")
-            
+
             process = await asyncio.create_subprocess_exec(
                 "sudo", "-n", "-u", "asterisk",
                 str(self.asterisk_path), "-rx", dtmf_cmd,
@@ -262,16 +301,20 @@ class AlertScriptManager:
             is_clear: Whether these are clear commands
         """
         commands = mapping.clear_commands if is_clear else mapping.commands
-        
+        # Run once with no alert context when the list is empty (e.g. InactiveCommands).
+        alert_iter: List[Optional[WeatherAlert]] = list(alerts) if alerts else [None]
+
         for command_template in commands:
-            # Execute for each matching alert (for placeholder substitution)
-            for alert in alerts:
-                command = self._substitute_placeholders(command_template, alert)
-                
+            for alert in alert_iter:
                 if mapping.script_type == "BASH":
+                    command = self._substitute_placeholders(
+                        command_template, alert, shell_quoting=True
+                    )
                     await self._execute_bash_command(command)
                 elif mapping.script_type == "DTMF":
-                    # Execute on all configured nodes
+                    command = self._substitute_placeholders(
+                        command_template, alert, shell_quoting=False
+                    )
                     for node in mapping.nodes:
                         await self._execute_dtmf_command(node, command)
 
@@ -371,23 +414,29 @@ class AlertScriptManager:
                         if alert.event in cleared_alert_events and mapping.matches_alert(alert.event)
                     ]
                     if not cleared_alerts:
-                        # Create dummy alert for placeholder substitution
-                        from ..core.models import AlertSeverity, AlertUrgency, AlertCertainty, AlertStatus, AlertCategory
+                        _now = datetime.now(timezone.utc)
+                        _ev = next(iter(cleared_alert_events))
                         dummy_alert = WeatherAlert(
                             id="cleared",
-                            event=list(cleared_alert_events)[0],
-                            area_desc="",
-                            geocode=[],
-                            county_codes=[],
+                            event=_ev,
+                            description="",
+                            headline=None,
+                            instruction=None,
                             severity=AlertSeverity.UNKNOWN,
                             urgency=AlertUrgency.UNKNOWN,
                             certainty=AlertCertainty.UNKNOWN,
-                            status=AlertStatus.UNKNOWN,
-                            category=AlertCategory.UNKNOWN,
+                            status=AlertStatus.ACTUAL,
+                            category=AlertCategory.OTHER,
+                            sent=_now,
+                            effective=_now,
+                            onset=None,
+                            expires=_now,
+                            ends=None,
+                            area_desc="",
+                            geocode=[],
+                            county_codes=[],
                             sender="",
                             sender_name="",
-                            effective=None,
-                            expires=None,
                         )
                         cleared_alerts = [dummy_alert]
                     
