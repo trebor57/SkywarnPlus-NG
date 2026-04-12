@@ -77,10 +77,11 @@
             </div>
         </div>
         <div class="card" id="card-poll">
-            <div class="flex items-center justify-between">
-                <div class="flex-1">
-                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last Poll</p>
-                    <p id="last-poll" class="text-2xl font-bold text-gray-900 dark:text-white mt-1"><span class="skeleton inline-block h-8 w-20 align-middle"></span></p>
+            <div class="flex items-center justify-between gap-2">
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-600 dark:text-gray-400">Last poll</p>
+                    <p id="last-poll" class="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mt-1 leading-snug break-words"><span class="skeleton inline-block h-8 w-20 align-middle"></span></p>
+                    <p id="last-poll-relative" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 hidden"></p>
                 </div>
                 <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
                     <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 01-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"></path></svg>
@@ -211,16 +212,28 @@
     function formatRelativeTime(timestamp) {
         if (!timestamp) return 'Never';
         const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return 'Unknown';
         const now = new Date();
         const diff = now - date;
         const minutes = Math.floor(diff / 60000);
-        
-        if (minutes < 1) return 'Just now';
+        if (diff < 0) return 'recent';
+        if (minutes < 1) return 'just now';
         if (minutes < 60) return `${minutes}m ago`;
         const hours = Math.floor(minutes / 60);
         if (hours < 24) return `${hours}h ago`;
         const days = Math.floor(hours / 24);
         return `${days}d ago`;
+    }
+
+    /** Wall-clock time of last NWS poll (local timezone); tooltip carries UTC ISO. */
+    function formatAbsolutePollTime(timestamp) {
+        if (!timestamp) return 'Never';
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return String(timestamp);
+        return date.toLocaleString(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'medium',
+        });
     }
 
     // Update system status
@@ -248,9 +261,33 @@
         document.getElementById('uptime').textContent = formatUptime(uptimeSeconds);
     }
 
-    // Update last poll
+    // Update last poll (absolute local time + relative age so staleness is obvious)
     function updateLastPoll(timestamp) {
-        document.getElementById('last-poll').textContent = formatRelativeTime(timestamp);
+        const main = document.getElementById('last-poll');
+        const rel = document.getElementById('last-poll-relative');
+        if (!main) return;
+        if (!timestamp) {
+            main.textContent = 'Never';
+            main.removeAttribute('title');
+            if (rel) {
+                rel.textContent = '';
+                rel.classList.add('hidden');
+            }
+            return;
+        }
+        main.textContent = formatAbsolutePollTime(timestamp);
+        try {
+            const d = new Date(timestamp);
+            if (!isNaN(d.getTime())) main.title = 'UTC: ' + d.toISOString();
+            else main.removeAttribute('title');
+        } catch (_) {
+            main.removeAttribute('title');
+        }
+        if (rel) {
+            const ago = formatRelativeTime(timestamp);
+            rel.textContent = ago && ago !== 'Never' && ago !== 'Unknown' ? ago : '';
+            rel.classList.toggle('hidden', !rel.textContent);
+        }
     }
 
     // Render alerts
@@ -477,7 +514,12 @@
             var a = document.getElementById('alerts-updated-ago');
             if (u && a) {
                 u.classList.remove('hidden');
-                a.textContent = status.last_poll ? formatRelativeTime(status.last_poll) : 'just now';
+                if (status.last_poll) {
+                    a.textContent =
+                        formatAbsolutePollTime(status.last_poll) + ' · ' + formatRelativeTime(status.last_poll);
+                } else {
+                    a.textContent = 'no poll time yet';
+                }
             }
         } catch (error) {
             console.error('Failed to load dashboard data:', error);
@@ -502,7 +544,7 @@
             renderAlerts(alerts);
             updateActiveAlertsCount(count);
             if (updatedEl) updatedEl.classList.remove('hidden');
-            if (agoEl) agoEl.textContent = 'just now';
+            if (agoEl) agoEl.textContent = formatAbsolutePollTime(new Date().toISOString()) + ' · just now';
             showNotification('Alerts refreshed', 'success');
         } catch (error) {
             showNotification(error.message || 'Failed to refresh alerts', 'error', 0, { retry: refreshAlerts });
