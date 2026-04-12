@@ -113,9 +113,12 @@ class ScriptManager:
             True if text matches pattern
         """
         import fnmatch
+
         return fnmatch.fnmatch(text, pattern)
 
-    async def _execute_script(self, script_config: ScriptConfig, alert: Optional[WeatherAlert], script_type: str) -> bool:
+    async def _execute_script(
+        self, script_config: ScriptConfig, alert: Optional[WeatherAlert], script_type: str
+    ) -> bool:
         """
         Execute a script with the given configuration.
 
@@ -148,19 +151,20 @@ class ScriptManager:
 
             try:
                 stdout, stderr = await asyncio.wait_for(
-                    process.communicate(),
-                    timeout=script_config.timeout
+                    process.communicate(), timeout=script_config.timeout
                 )
             except asyncio.TimeoutError:
-                logger.error(f"Script timed out after {script_config.timeout}s: {script_config.command}")
+                logger.error(
+                    f"Script timed out after {script_config.timeout}s: {script_config.command}"
+                )
                 process.kill()
                 await process.wait()
                 self._record_execution(script_config, alert, script_type, False, "Timeout", "")
                 return False
 
             # Decode output
-            stdout_str = stdout.decode('utf-8', errors='replace')
-            stderr_str = stderr.decode('utf-8', errors='replace')
+            stdout_str = stdout.decode("utf-8", errors="replace")
+            stderr_str = stderr.decode("utf-8", errors="replace")
 
             # Check return code
             success = process.returncode == 0
@@ -170,15 +174,20 @@ class ScriptManager:
                 if stdout_str:
                     logger.debug(f"Script output: {stdout_str}")
             else:
-                logger.error(f"Script failed with code {process.returncode}: {script_config.command}")
+                logger.error(
+                    f"Script failed with code {process.returncode}: {script_config.command}"
+                )
                 if stderr_str:
                     logger.error(f"Script error: {stderr_str}")
 
             # Record execution
             self._record_execution(
-                script_config, alert, script_type, success,
+                script_config,
+                alert,
+                script_type,
+                success,
                 f"Exit code: {process.returncode}",
-                stdout_str + stderr_str
+                stdout_str + stderr_str,
             )
 
             return success
@@ -189,14 +198,18 @@ class ScriptManager:
             return False
         except PermissionError:
             logger.error(f"Script not executable: {script_config.command}")
-            self._record_execution(script_config, alert, script_type, False, "Permission denied", "")
+            self._record_execution(
+                script_config, alert, script_type, False, "Permission denied", ""
+            )
             return False
         except Exception as e:
             logger.error(f"Error executing script {script_config.command}: {e}")
             self._record_execution(script_config, alert, script_type, False, str(e), "")
             return False
 
-    def _prepare_environment(self, script_config: ScriptConfig, alert: Optional[WeatherAlert]) -> Dict[str, str]:
+    def _prepare_environment(
+        self, script_config: ScriptConfig, alert: Optional[WeatherAlert]
+    ) -> Dict[str, str]:
         """
         Prepare environment variables for script execution.
 
@@ -217,18 +230,20 @@ class ScriptManager:
 
         # Add alert-specific environment variables
         if alert:
-            env.update({
-                "ALERT_ID": alert.id,
-                "ALERT_EVENT": alert.event,
-                "ALERT_SEVERITY": alert.severity.value,
-                "ALERT_URGENCY": alert.urgency.value,
-                "ALERT_CERTAINTY": alert.certainty.value,
-                "ALERT_AREA": alert.area_desc,
-                "ALERT_COUNTIES": ",".join(alert.county_codes),
-                "ALERT_EFFECTIVE": alert.effective.isoformat(),
-                "ALERT_EXPIRES": alert.expires.isoformat(),
-                "ALERT_SENDER": alert.sender,
-            })
+            env.update(
+                {
+                    "ALERT_ID": alert.id,
+                    "ALERT_EVENT": alert.event,
+                    "ALERT_SEVERITY": alert.severity.value,
+                    "ALERT_URGENCY": alert.urgency.value,
+                    "ALERT_CERTAINTY": alert.certainty.value,
+                    "ALERT_AREA": alert.area_desc,
+                    "ALERT_COUNTIES": ",".join(alert.county_codes),
+                    "ALERT_EFFECTIVE": alert.effective.isoformat(),
+                    "ALERT_EXPIRES": alert.expires.isoformat(),
+                    "ALERT_SENDER": alert.sender,
+                }
+            )
 
             if alert.onset:
                 env["ALERT_ONSET"] = alert.onset.isoformat()
@@ -240,8 +255,15 @@ class ScriptManager:
 
         return env
 
-    def _record_execution(self, script_config: ScriptConfig, alert: Optional[WeatherAlert], 
-                         script_type: str, success: bool, error_msg: str, output: str) -> None:
+    def _record_execution(
+        self,
+        script_config: ScriptConfig,
+        alert: Optional[WeatherAlert],
+        script_type: str,
+        success: bool,
+        error_msg: str,
+        output: str,
+    ) -> None:
         """
         Record script execution in history.
 

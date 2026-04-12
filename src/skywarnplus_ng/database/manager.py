@@ -11,10 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
-from .models import (
-    Base, AlertRecord, MetricRecord, HealthCheckRecord, 
-    ScriptExecutionRecord
-)
+from .models import Base, AlertRecord, MetricRecord, HealthCheckRecord, ScriptExecutionRecord
 from ..core.models import WeatherAlert
 from ..core.config import AppConfig
 
@@ -68,9 +65,7 @@ class DatabaseManager:
 
             # Create session factory
             self.async_session_factory = async_sessionmaker(
-                self.engine,
-                class_=AsyncSession,
-                expire_on_commit=False
+                self.engine, class_=AsyncSession, expire_on_commit=False
             )
 
             # Create tables
@@ -97,8 +92,13 @@ class DatabaseManager:
             raise DatabaseError("Database not initialized")
         return self.async_session_factory()
 
-    async def store_alert(self, alert: WeatherAlert, announced: bool = False, 
-                         script_executed: bool = False, announcement_nodes: List[int] = None) -> None:
+    async def store_alert(
+        self,
+        alert: WeatherAlert,
+        announced: bool = False,
+        script_executed: bool = False,
+        announcement_nodes: List[int] = None,
+    ) -> None:
         """
         Store a weather alert in the database.
 
@@ -144,9 +144,7 @@ class DatabaseManager:
                         announced=announced,
                         script_executed=script_executed,
                         announcement_nodes=announcement_nodes or [],
-                        metadata={
-                            "original_alert": alert.model_dump()
-                        }
+                        metadata={"original_alert": alert.model_dump()},
                     )
                     session.add(alert_record)
 
@@ -188,7 +186,7 @@ class DatabaseManager:
         try:
             async with await self.get_session() as session:
                 cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
-                
+
                 result = await session.execute(
                     text("""
                         SELECT * FROM alerts 
@@ -196,16 +194,17 @@ class DatabaseManager:
                         ORDER BY processed_at DESC 
                         LIMIT :limit
                     """),
-                    {"cutoff_time": cutoff_time, "limit": limit}
+                    {"cutoff_time": cutoff_time, "limit": limit},
                 )
-                
+
                 return result.fetchall()
         except SQLAlchemyError as e:
             logger.error(f"Failed to get recent alerts: {e}")
             raise DatabaseError(f"Failed to get recent alerts: {e}") from e
 
-    async def store_metric(self, name: str, value: float, unit: str = None, 
-                          metadata: Dict[str, Any] = None) -> None:
+    async def store_metric(
+        self, name: str, value: float, unit: str = None, metadata: Dict[str, Any] = None
+    ) -> None:
         """
         Store a metric.
 
@@ -218,10 +217,7 @@ class DatabaseManager:
         try:
             async with await self.get_session() as session:
                 metric_record = MetricRecord(
-                    metric_name=name,
-                    metric_value=value,
-                    metric_unit=unit,
-                    metadata=metadata or {}
+                    metric_name=name, metric_value=value, metric_unit=unit, metadata=metadata or {}
                 )
                 session.add(metric_record)
                 await session.commit()
@@ -231,8 +227,13 @@ class DatabaseManager:
             logger.error(f"Failed to store metric {name}: {e}")
             raise DatabaseError(f"Failed to store metric: {e}") from e
 
-    async def store_health_check(self, overall_status: str, uptime_seconds: float,
-                                components: List[Dict[str, Any]], metadata: Dict[str, Any] = None) -> None:
+    async def store_health_check(
+        self,
+        overall_status: str,
+        uptime_seconds: float,
+        components: List[Dict[str, Any]],
+        metadata: Dict[str, Any] = None,
+    ) -> None:
         """
         Store a health check result.
 
@@ -248,7 +249,7 @@ class DatabaseManager:
                     overall_status=overall_status,
                     uptime_seconds=uptime_seconds,
                     components=components,
-                    metadata=metadata or {}
+                    metadata=metadata or {},
                 )
                 session.add(health_record)
                 await session.commit()
@@ -258,11 +259,20 @@ class DatabaseManager:
             logger.error(f"Failed to store health check: {e}")
             raise DatabaseError(f"Failed to store health check: {e}") from e
 
-    async def store_script_execution(self, script_type: str, command: str, args: List[str],
-                                   success: bool, return_code: int = None, 
-                                   execution_time_ms: float = None, error_message: str = None,
-                                   output: str = None, alert_id: str = None, 
-                                   alert_event: str = None, metadata: Dict[str, Any] = None) -> None:
+    async def store_script_execution(
+        self,
+        script_type: str,
+        command: str,
+        args: List[str],
+        success: bool,
+        return_code: int = None,
+        execution_time_ms: float = None,
+        error_message: str = None,
+        output: str = None,
+        alert_id: str = None,
+        alert_event: str = None,
+        metadata: Dict[str, Any] = None,
+    ) -> None:
         """
         Store a script execution record.
 
@@ -293,7 +303,7 @@ class DatabaseManager:
                     alert_id=alert_id,
                     alert_event=alert_event,
                     completed_at=datetime.now(timezone.utc),
-                    metadata=metadata or {}
+                    metadata=metadata or {},
                 )
                 session.add(script_record)
                 await session.commit()
@@ -316,11 +326,11 @@ class DatabaseManager:
         try:
             async with await self.get_session() as session:
                 cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
-                
+
                 # Get total alerts
                 total_result = await session.execute(
                     text("SELECT COUNT(*) as total FROM alerts WHERE processed_at >= :cutoff_time"),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 total_alerts = total_result.scalar()
 
@@ -332,7 +342,7 @@ class DatabaseManager:
                         WHERE processed_at >= :cutoff_time 
                         GROUP BY severity
                     """),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 alerts_by_severity = dict(severity_result.fetchall())
 
@@ -346,7 +356,7 @@ class DatabaseManager:
                         ORDER BY count DESC
                         LIMIT 10
                     """),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 alerts_by_event = dict(event_result.fetchall())
 
@@ -359,7 +369,7 @@ class DatabaseManager:
                         FROM alerts 
                         WHERE processed_at >= :cutoff_time
                     """),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 announcement_stats = announcement_result.fetchone()
 
@@ -370,8 +380,8 @@ class DatabaseManager:
                     "alerts_by_event": alerts_by_event,
                     "announcement_stats": {
                         "total": announcement_stats[0],
-                        "announced": announcement_stats[1]
-                    }
+                        "announced": announcement_stats[1],
+                    },
                 }
 
         except SQLAlchemyError as e:
@@ -396,28 +406,28 @@ class DatabaseManager:
                 # Clean up old alerts
                 alert_result = await session.execute(
                     text("DELETE FROM alerts WHERE processed_at < :cutoff_time"),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 cleanup_stats["alerts_deleted"] = alert_result.rowcount
 
                 # Clean up old metrics
                 metric_result = await session.execute(
                     text("DELETE FROM metrics WHERE timestamp < :cutoff_time"),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 cleanup_stats["metrics_deleted"] = metric_result.rowcount
 
                 # Clean up old health checks
                 health_result = await session.execute(
                     text("DELETE FROM health_checks WHERE timestamp < :cutoff_time"),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 cleanup_stats["health_checks_deleted"] = health_result.rowcount
 
                 # Clean up old script executions
                 script_result = await session.execute(
                     text("DELETE FROM script_executions WHERE started_at < :cutoff_time"),
-                    {"cutoff_time": cutoff_time}
+                    {"cutoff_time": cutoff_time},
                 )
                 cleanup_stats["script_executions_deleted"] = script_result.rowcount
 
@@ -433,46 +443,52 @@ class DatabaseManager:
     async def optimize_database(self) -> Dict[str, Any]:
         """
         Optimize the database by running VACUUM and ANALYZE operations.
-        
+
         Returns:
             Dictionary with optimization results
         """
         try:
             optimization_stats = {}
-            
+
             async with await self.get_session() as session:
                 # Get database size before optimization
                 if "sqlite" in str(self.engine.url):
                     size_before_result = await session.execute(
-                        text("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+                        text(
+                            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+                        )
                     )
                     size_before = size_before_result.scalar()
                     optimization_stats["size_before_bytes"] = size_before
-                    
+
                     # Run VACUUM to reclaim space and defragment
                     await session.execute(text("VACUUM"))
-                    
+
                     # Run ANALYZE to update query planner statistics
                     await session.execute(text("ANALYZE"))
-                    
+
                     # Get database size after optimization
                     size_after_result = await session.execute(
-                        text("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+                        text(
+                            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+                        )
                     )
                     size_after = size_after_result.scalar()
                     optimization_stats["size_after_bytes"] = size_after
                     optimization_stats["space_saved_bytes"] = size_before - size_after
-                    optimization_stats["space_saved_percentage"] = ((size_before - size_after) / size_before * 100) if size_before > 0 else 0
+                    optimization_stats["space_saved_percentage"] = (
+                        ((size_before - size_after) / size_before * 100) if size_before > 0 else 0
+                    )
                 else:
                     # For non-SQLite databases, just run ANALYZE
                     await session.execute(text("ANALYZE"))
                     optimization_stats["operation"] = "ANALYZE completed"
-                
+
                 await session.commit()
                 logger.info(f"Database optimization completed: {optimization_stats}")
-                
+
             return optimization_stats
-            
+
         except SQLAlchemyError as e:
             logger.error(f"Failed to optimize database: {e}")
             raise DatabaseError(f"Failed to optimize database: {e}") from e
@@ -489,7 +505,13 @@ class DatabaseManager:
                 stats = {}
 
                 # Get table counts
-                tables = ["alerts", "metrics", "health_checks", "script_executions", "configurations"]
+                tables = [
+                    "alerts",
+                    "metrics",
+                    "health_checks",
+                    "script_executions",
+                    "configurations",
+                ]
                 for table in tables:
                     result = await session.execute(text(f"SELECT COUNT(*) FROM {table}"))
                     stats[f"{table}_count"] = result.scalar()
@@ -497,7 +519,9 @@ class DatabaseManager:
                 # Get database size (SQLite specific)
                 if "sqlite" in str(self.engine.url):
                     size_result = await session.execute(
-                        text("SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()")
+                        text(
+                            "SELECT page_count * page_size as size FROM pragma_page_count(), pragma_page_size()"
+                        )
                     )
                     stats["database_size_bytes"] = size_result.scalar()
 
@@ -510,24 +534,24 @@ class DatabaseManager:
     async def backup_database(self, backup_path: Optional[Path] = None) -> Path:
         """
         Create a backup of the database.
-        
+
         Args:
             backup_path: Optional path for backup file (defaults to data_dir/backups/)
-            
+
         Returns:
             Path to the backup file
         """
         try:
             import shutil
             from datetime import datetime
-            
+
             # Determine backup path
             if not backup_path:
                 backup_dir = self.config.data_dir / "backups"
                 backup_dir.mkdir(parents=True, exist_ok=True)
                 timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
                 backup_path = backup_dir / f"skywarnplus_ng_backup_{timestamp}.db"
-            
+
             # Get the database file path
             if "sqlite" in str(self.engine.url):
                 # Extract file path from SQLite URL
@@ -535,19 +559,21 @@ class DatabaseManager:
                 # Handle both sqlite:/// and sqlite+aiosqlite:/// URLs
                 db_path = db_url.replace("sqlite+aiosqlite:///", "").replace("sqlite:///", "")
                 db_file = Path(db_path)
-                
+
                 if not db_file.exists():
                     raise DatabaseError(f"Database file not found: {db_file}")
-                
+
                 # Copy the database file
                 shutil.copy2(db_file, backup_path)
                 logger.info(f"Database backup created: {backup_path}")
-                
+
                 return backup_path
             else:
                 # For non-SQLite databases, we'd need to use database-specific backup tools
-                raise DatabaseError(f"Backup not supported for database type: {self.engine.url.drivername}")
-                
+                raise DatabaseError(
+                    f"Backup not supported for database type: {self.engine.url.drivername}"
+                )
+
         except Exception as e:
             logger.error(f"Failed to backup database: {e}")
             raise DatabaseError(f"Failed to backup database: {e}") from e

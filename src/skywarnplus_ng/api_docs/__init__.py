@@ -10,7 +10,7 @@ from .postman import PostmanCollectionGenerator
 
 __all__ = [
     "OpenAPIGenerator",
-    "OpenAPISpec", 
+    "OpenAPISpec",
     "InteractiveDocsGenerator",
     "CodeExampleGenerator",
     "SDKGenerator",

@@ -7,7 +7,7 @@ from .manager import DatabaseManager, DatabaseError
 
 __all__ = [
     "AlertRecord",
-    "MetricRecord", 
+    "MetricRecord",
     "HealthCheckRecord",
     "ScriptExecutionRecord",
     "DatabaseManager",

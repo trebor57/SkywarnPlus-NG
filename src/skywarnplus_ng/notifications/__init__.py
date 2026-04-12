@@ -14,7 +14,7 @@ __all__ = [
     "NotificationManager",
     "NotificationError",
     "EmailNotifier",
-    "EmailConfig", 
+    "EmailConfig",
     "EmailProvider",
     "WebhookNotifier",
     "WebhookConfig",

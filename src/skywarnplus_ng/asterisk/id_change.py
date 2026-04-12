@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class IDChangeError(Exception):
     """ID change error."""
+
     pass
 
 
@@ -32,7 +33,7 @@ class IDChangeManager:
         wx_id: str,
         rpt_id: str,
         id_alerts: List[str],
-        state_manager=None
+        state_manager=None,
     ):
         """
         Initialize ID change manager.
@@ -62,7 +63,7 @@ class IDChangeManager:
         if self.state_manager:
             try:
                 state = self.state_manager.load_state()
-                self.current_mode = state.get('id')
+                self.current_mode = state.get("id")
                 if self.current_mode:
                     logger.debug(f"Loaded ID mode from state: {self.current_mode}")
             except Exception as e:
@@ -71,7 +72,9 @@ class IDChangeManager:
         if not self.enabled:
             logger.info("ID changing is disabled")
         else:
-            logger.info(f"ID change manager initialized (id_dir: {self.id_dir}, rpt_id: {self.rpt_id})")
+            logger.info(
+                f"ID change manager initialized (id_dir: {self.id_dir}, rpt_id: {self.rpt_id})"
+            )
 
     def _has_wx_alerts(self, alerts: List[WeatherAlert]) -> bool:
         """
@@ -87,13 +90,15 @@ class IDChangeManager:
             return False
 
         alert_events = {alert.event for alert in alerts}
-        
+
         for alert_event in alert_events:
             for id_alert_pattern in self.id_alerts:
                 if fnmatch.fnmatch(alert_event, id_alert_pattern):
-                    logger.debug(f"Alert {alert_event} matches ID trigger pattern: {id_alert_pattern}")
+                    logger.debug(
+                        f"Alert {alert_event} matches ID trigger pattern: {id_alert_pattern}"
+                    )
                     return True
-        
+
         return False
 
     def _copy_id_file(self, source_file: Path, dest_file: Path) -> bool:
@@ -134,7 +139,7 @@ class IDChangeManager:
             return False
 
         mode = mode.upper()
-        if mode not in ['NORMAL', 'WX']:
+        if mode not in ["NORMAL", "WX"]:
             logger.error(f"Invalid ID mode: {mode} (must be 'NORMAL' or 'WX')")
             return False
 
@@ -157,17 +162,17 @@ class IDChangeManager:
         if self._copy_id_file(source_file, dest_file):
             self.current_mode = mode
             logger.info(f"ID changed to {mode} mode (copied {source_filename} to {self.rpt_id})")
-            
+
             # Update state if state manager is available
             if self.state_manager:
                 try:
                     state = self.state_manager.load_state()
-                    state['id'] = mode
+                    state["id"] = mode
                     self.state_manager.save_state(state)
                     logger.debug(f"Updated state with ID mode: {mode}")
                 except Exception as e:
                     logger.warning(f"Failed to update state with ID mode: {e}")
-            
+
             return True
         else:
             logger.error(f"Failed to change ID to {mode} mode")
@@ -203,4 +208,3 @@ class IDChangeManager:
             True if change was successful
         """
         return self.change_mode(mode)
-

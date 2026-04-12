@@ -23,7 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for older interpreter
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 REQUIRED_DIRS = ("src", "config")
 OPTIONAL_DIRS = ("SOUNDS", "scripts")
-BASE_FILES = ("pyproject.toml", "README.md", "CountyCodes.md", "install.sh")
+BASE_FILES = ("pyproject.toml", "README.md", "CountyCodes.md", "install.sh", "LICENSE")
 
 
 def _read_version(pyproject_path: Path) -> str:

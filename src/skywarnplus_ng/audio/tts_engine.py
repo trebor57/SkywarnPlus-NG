@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 # Try to import gTTS
 try:
     from gtts import gTTS
+
     GTTS_AVAILABLE = True
 except ImportError:
     GTTS_AVAILABLE = False
@@ -25,6 +26,7 @@ except ImportError:
 # Try to import Piper
 try:
     from piper import PiperVoice
+
     PIPER_AVAILABLE = True
 except ImportError:
     PIPER_AVAILABLE = False
@@ -58,13 +60,13 @@ class GTTSEngine:
         """Validate TTS configuration."""
         if self.config.engine != "gtts":
             raise TTSEngineError(f"Unsupported TTS engine: {self.config.engine}")
-        
+
         if not GTTS_AVAILABLE:
             raise TTSEngineError("gTTS library is not installed. Install with: pip install gtts")
-        
+
         if not self.config.language:
             raise TTSEngineError("Language code is required")
-        
+
         if not self.config.tld:
             raise TTSEngineError("Top-level domain is required")
 
@@ -105,10 +107,7 @@ class GTTSEngine:
         try:
             # Create gTTS instance
             tts = gTTS(
-                text=text,
-                lang=self.config.language,
-                tld=self.config.tld,
-                slow=self.config.slow
+                text=text, lang=self.config.language, tld=self.config.tld, slow=self.config.slow
             )
 
             # Create temporary file for MP3 output
@@ -121,7 +120,7 @@ class GTTSEngine:
 
             # Convert MP3 to desired format
             final_path = self._convert_audio(temp_mp3_path, output_path)
-            
+
             # Clean up temporary MP3 file
             temp_mp3_path.unlink(missing_ok=True)
 
@@ -146,20 +145,20 @@ class GTTSEngine:
         try:
             # Load audio with AudioSegment (replaces pydub)
             audio = AudioSegment.from_mp3(str(input_path))
-            
+
             # Convert to mono if needed
             if audio.channels > 1:
                 audio = audio.set_channels(1)
                 logger.debug("Converted to mono")
-            
+
             # Resample to desired sample rate
             if audio.frame_rate != self.config.sample_rate:
                 audio = audio.set_frame_rate(self.config.sample_rate)
                 logger.debug(f"Resampled to {self.config.sample_rate} Hz")
-            
+
             # Normalize audio
             audio = audio.normalize()
-            
+
             # Export to desired format
             if self.config.output_format.lower() == "wav":
                 audio.export(str(output_path), format="wav")
@@ -169,48 +168,62 @@ class GTTSEngine:
                 # Export to ulaw format using WAV intermediate + ffmpeg conversion
                 # First ensure we're at 8000Hz mono (required for ulaw)
                 audio = audio.set_frame_rate(8000).set_channels(1)
-                
+
                 # Export as WAV first, then convert to ulaw using ffmpeg
                 import tempfile
                 import subprocess
-                
+
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
-                
+
                 # Export as WAV (pydub can do this reliably)
                 audio.export(str(temp_wav_path), format="wav")
-                
+
                 # Convert WAV to ulaw using ffmpeg
                 try:
                     subprocess.run(
                         [
-                            "ffmpeg", "-y", "-i", str(temp_wav_path),
-                            "-ar", "8000", "-ac", "1",
-                            "-f", "mulaw",
-                            str(output_path)
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            str(temp_wav_path),
+                            "-ar",
+                            "8000",
+                            "-ac",
+                            "1",
+                            "-f",
+                            "mulaw",
+                            str(output_path),
                         ],
                         check=True,
                         capture_output=True,
                         timeout=30,
-                        text=True
+                        text=True,
                     )
                     # Verify file was created
                     import time
+
                     time.sleep(0.1)  # Brief pause for filesystem sync
-                    
+
                     if not output_path.exists():
                         logger.error(f"FFmpeg output file does not exist: {output_path}")
-                        logger.error(f"FFmpeg command: ffmpeg -y -i {temp_wav_path} -ar 8000 -ac 1 -f mulaw {output_path}")
+                        logger.error(
+                            f"FFmpeg command: ffmpeg -y -i {temp_wav_path} -ar 8000 -ac 1 -f mulaw {output_path}"
+                        )
                         raise TTSEngineError(f"FFmpeg did not create output file: {output_path}")
-                    
+
                     file_size = output_path.stat().st_size
                     if file_size == 0:
                         logger.error(f"FFmpeg created empty file: {output_path}")
                         raise TTSEngineError(f"FFmpeg created empty ulaw file: {output_path}")
-                    
+
                     logger.debug(f"Converted to ulaw: {output_path} ({file_size} bytes)")
                 except subprocess.CalledProcessError as e:
-                    error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+                    error_msg = (
+                        e.stderr
+                        if isinstance(e.stderr, str)
+                        else (e.stderr.decode() if e.stderr else "Unknown error")
+                    )
                     logger.error(f"FFmpeg conversion to ulaw failed: {error_msg}")
                     if e.stdout:
                         stdout_msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode()
@@ -225,7 +238,7 @@ class GTTSEngine:
                 # Default to WAV
                 output_path = output_path.with_suffix(".wav")
                 audio.export(str(output_path), format="wav")
-            
+
             logger.debug(f"Converted audio: {input_path} -> {output_path}")
             return output_path
 
@@ -245,17 +258,24 @@ class GTTSEngine:
         """
         try:
             # Handle ulaw files specially
-            if audio_path.suffix.lower() in ['.ulaw', '.ul']:
+            if audio_path.suffix.lower() in [".ulaw", ".ul"]:
                 # For ulaw, use ffprobe to get duration
                 import subprocess
+
                 probe_cmd = [
                     "ffprobe",
-                    "-v", "error",
-                    "-f", "mulaw",
-                    "-ar", "8000",
-                    "-ac", "1",
-                    "-show_entries", "stream=duration",
-                    "-of", "default=noprint_wrappers=1:nokey=1",
+                    "-v",
+                    "error",
+                    "-f",
+                    "mulaw",
+                    "-ar",
+                    "8000",
+                    "-ac",
+                    "1",
+                    "-show_entries",
+                    "stream=duration",
+                    "-of",
+                    "default=noprint_wrappers=1:nokey=1",
                     str(audio_path),
                 ]
                 try:
@@ -271,11 +291,13 @@ class GTTSEngine:
                         duration = float(output)
                         return duration
                 except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-                    logger.warning(f"Failed to get ulaw duration with ffprobe: {e}, using file size estimate")
+                    logger.warning(
+                        f"Failed to get ulaw duration with ffprobe: {e}, using file size estimate"
+                    )
                     # Fallback: estimate from file size (ulaw is 8000 bytes/second at 8kHz)
                     file_size = audio_path.stat().st_size
                     return file_size / 8000.0
-            
+
             # For other formats, use AudioSegment
             audio = AudioSegment.from_file(str(audio_path))
             return len(audio) / 1000.0  # Convert milliseconds to seconds
@@ -296,23 +318,24 @@ class GTTSEngine:
         if not audio_path.exists():
             logger.error(f"Audio file does not exist: {audio_path}")
             return False
-        
+
         try:
             # For ulaw files, check with ffprobe
-            if audio_path.suffix.lower() in ['.ulaw', '.ul']:
+            if audio_path.suffix.lower() in [".ulaw", ".ul"]:
                 import subprocess
+
                 try:
                     subprocess.run(
                         ["ffprobe", "-v", "error", str(audio_path)],
                         capture_output=True,
                         timeout=10,
-                        check=True
+                        check=True,
                     )
                     return True
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     # If ffprobe fails, check if file exists and has size > 0
                     return audio_path.stat().st_size > 0
-            
+
             # For other formats, try to load with pydub
             AudioSegment.from_file(str(audio_path))
             return True
@@ -340,37 +363,41 @@ class PiperTSEngine:
         """Validate TTS configuration."""
         if self.config.engine != "piper":
             raise TTSEngineError(f"Unsupported TTS engine: {self.config.engine}")
-        
+
         if not PIPER_AVAILABLE:
-            raise TTSEngineError("Piper TTS library is not installed. Install with: pip install piper-tts")
-        
+            raise TTSEngineError(
+                "Piper TTS library is not installed. Install with: pip install piper-tts"
+            )
+
         if not self.config.model_path or not str(self.config.model_path).strip():
             raise TTSEngineError(
                 "Model path is required for Piper TTS. Set audio.tts.model_path in config to the path "
                 "of your .onnx voice model file, or use audio.tts.engine: gtts for cloud TTS."
             )
-        
+
         model_path = Path(self.config.model_path)
         if not model_path.exists():
             raise TTSEngineError(f"Piper model file not found: {model_path}")
-        
+
         # Check for config file (usually .onnx.json)
         config_path = model_path.with_suffix(model_path.suffix + ".json")
         if not config_path.exists():
-            logger.warning(f"Piper config file not found: {config_path}, will try to load without explicit config")
+            logger.warning(
+                f"Piper config file not found: {config_path}, will try to load without explicit config"
+            )
 
     def _load_voice(self) -> None:
         """Load Piper voice model."""
         try:
             model_path = Path(self.config.model_path)
             config_path = model_path.with_suffix(model_path.suffix + ".json")
-            
+
             if config_path.exists():
                 self.voice = PiperVoice.load(str(model_path), config_path=str(config_path))
             else:
                 # Try loading without explicit config (Piper can sometimes auto-detect)
                 self.voice = PiperVoice.load(str(model_path))
-            
+
             logger.debug(f"Loaded Piper voice model: {model_path}")
         except Exception as e:
             logger.error(f"Failed to load Piper voice model: {e}")
@@ -387,11 +414,11 @@ class PiperTSEngine:
             if not PIPER_AVAILABLE:
                 logger.warning("Piper TTS library not installed")
                 return False
-            
+
             if self.voice is None:
                 logger.warning("Piper voice model not loaded")
                 return False
-            
+
             # Skip the test synthesis to avoid hangs during initialization
             # Just check if voice is loaded
             # NOTE: We skip the test synthesis because it can hang indefinitely
@@ -413,7 +440,7 @@ class PiperTSEngine:
         """
         if self.voice is None:
             raise TTSEngineError("Piper voice model not loaded")
-        
+
         try:
             output_path.parent.mkdir(parents=True, exist_ok=True)
             import inspect
@@ -450,6 +477,7 @@ class PiperTSEngine:
         except Exception as e:
             logger.error(f"Piper synthesis failed: {e}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise TTSEngineError(f"Piper synthesis failed: {e}") from e
 
@@ -514,11 +542,11 @@ class PiperTSEngine:
                 # Need to convert from WAV to desired format
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
-                
+
                 try:
                     # Synthesize to temporary WAV file
                     self._synthesize_to_wav(text, temp_wav_path)
-                    
+
                     # Convert to desired format
                     final_path = self._convert_audio(temp_wav_path, output_path)
                     logger.info(f"Successfully synthesized audio: {final_path}")
@@ -544,20 +572,20 @@ class PiperTSEngine:
         try:
             # Load audio (Piper outputs WAV)
             audio = AudioSegment.from_wav(str(input_path))
-            
+
             # Convert to mono if needed
             if audio.channels > 1:
                 audio = audio.set_channels(1)
                 logger.debug("Converted to mono")
-            
+
             # Resample to desired sample rate
             if audio.frame_rate != self.config.sample_rate:
                 audio = audio.set_frame_rate(self.config.sample_rate)
                 logger.debug(f"Resampled to {self.config.sample_rate} Hz")
-            
+
             # Normalize audio
             audio = audio.normalize()
-            
+
             # Export to desired format
             if self.config.output_format.lower() == "wav":
                 audio.export(str(output_path), format="wav")
@@ -567,45 +595,59 @@ class PiperTSEngine:
                 # Export to ulaw format using WAV intermediate + ffmpeg conversion
                 # First ensure we're at 8000Hz mono (required for ulaw)
                 audio = audio.set_frame_rate(8000).set_channels(1)
-                
+
                 # Export as WAV first, then convert to ulaw using ffmpeg
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
-                
+
                 # Export as WAV (pydub can do this reliably)
                 audio.export(str(temp_wav_path), format="wav")
-                
+
                 # Convert WAV to ulaw using ffmpeg
                 try:
                     subprocess.run(
                         [
-                            "ffmpeg", "-y", "-i", str(temp_wav_path),
-                            "-ar", "8000", "-ac", "1",
-                            "-f", "mulaw",
-                            str(output_path)
+                            "ffmpeg",
+                            "-y",
+                            "-i",
+                            str(temp_wav_path),
+                            "-ar",
+                            "8000",
+                            "-ac",
+                            "1",
+                            "-f",
+                            "mulaw",
+                            str(output_path),
                         ],
                         check=True,
                         capture_output=True,
                         timeout=30,
-                        text=True
+                        text=True,
                     )
                     # Verify file was created
                     import time
+
                     time.sleep(0.1)  # Brief pause for filesystem sync
-                    
+
                     if not output_path.exists():
                         logger.error(f"FFmpeg output file does not exist: {output_path}")
-                        logger.error(f"FFmpeg command: ffmpeg -y -i {temp_wav_path} -ar 8000 -ac 1 -f mulaw {output_path}")
+                        logger.error(
+                            f"FFmpeg command: ffmpeg -y -i {temp_wav_path} -ar 8000 -ac 1 -f mulaw {output_path}"
+                        )
                         raise TTSEngineError(f"FFmpeg did not create output file: {output_path}")
-                    
+
                     file_size = output_path.stat().st_size
                     if file_size == 0:
                         logger.error(f"FFmpeg created empty file: {output_path}")
                         raise TTSEngineError(f"FFmpeg created empty ulaw file: {output_path}")
-                    
+
                     logger.debug(f"Converted to ulaw: {output_path} ({file_size} bytes)")
                 except subprocess.CalledProcessError as e:
-                    error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+                    error_msg = (
+                        e.stderr
+                        if isinstance(e.stderr, str)
+                        else (e.stderr.decode() if e.stderr else "Unknown error")
+                    )
                     logger.error(f"FFmpeg conversion to ulaw failed: {error_msg}")
                     if e.stdout:
                         stdout_msg = e.stdout if isinstance(e.stdout, str) else e.stdout.decode()
@@ -620,7 +662,7 @@ class PiperTSEngine:
                 # Default to WAV
                 output_path = output_path.with_suffix(".wav")
                 audio.export(str(output_path), format="wav")
-            
+
             logger.debug(f"Converted audio: {input_path} -> {output_path}")
             return output_path
 
@@ -640,25 +682,35 @@ class PiperTSEngine:
         """
         try:
             # Handle ulaw files specially
-            if audio_path.suffix.lower() in ['.ulaw', '.ul']:
+            if audio_path.suffix.lower() in [".ulaw", ".ul"]:
                 # For ulaw, use ffprobe to get duration
                 try:
                     result = subprocess.run(
-                        ["ffprobe", "-v", "error", "-show_entries", "format=duration",
-                         "-of", "default=noprint_wrappers=1:nokey=1", str(audio_path)],
+                        [
+                            "ffprobe",
+                            "-v",
+                            "error",
+                            "-show_entries",
+                            "format=duration",
+                            "-of",
+                            "default=noprint_wrappers=1:nokey=1",
+                            str(audio_path),
+                        ],
                         capture_output=True,
                         text=True,
                         timeout=10,
-                        check=True
+                        check=True,
                     )
                     duration = float(result.stdout.strip())
                     return duration
                 except (subprocess.CalledProcessError, FileNotFoundError, ValueError) as e:
-                    logger.warning(f"Failed to get ulaw duration with ffprobe: {e}, using file size estimate")
+                    logger.warning(
+                        f"Failed to get ulaw duration with ffprobe: {e}, using file size estimate"
+                    )
                     # Fallback: estimate from file size (ulaw is 8000 bytes/second at 8kHz)
                     file_size = audio_path.stat().st_size
                     return file_size / 8000.0
-            
+
             # For other formats, use AudioSegment
             audio = AudioSegment.from_file(str(audio_path))
             return len(audio) / 1000.0  # Convert milliseconds to seconds
@@ -679,22 +731,22 @@ class PiperTSEngine:
         if not audio_path.exists():
             logger.error(f"Audio file does not exist: {audio_path}")
             return False
-        
+
         try:
             # For ulaw files, check with ffprobe
-            if audio_path.suffix.lower() in ['.ulaw', '.ul']:
+            if audio_path.suffix.lower() in [".ulaw", ".ul"]:
                 try:
                     subprocess.run(
                         ["ffprobe", "-v", "error", str(audio_path)],
                         capture_output=True,
                         timeout=10,
-                        check=True
+                        check=True,
                     )
                     return True
                 except (subprocess.CalledProcessError, FileNotFoundError):
                     # If ffprobe fails, check if file exists and has size > 0
                     return audio_path.stat().st_size > 0
-            
+
             # For other formats, try to load with pydub
             AudioSegment.from_file(str(audio_path))
             return True

@@ -15,68 +15,72 @@ from .postman import PostmanCollectionGenerator
 
 class APIDocumentationGenerator:
     """Generate comprehensive API documentation for SkywarnPlus-NG."""
-    
+
     def __init__(self, base_url: str = "http://localhost:8080", version: str = "2.0.0"):
         self.base_url = base_url
         self.version = version
-        
+
         # Initialize generators
         self.openapi_generator = OpenAPIGenerator(base_url, version)
         self.interactive_generator = InteractiveDocsGenerator(base_url, version)
         self.code_examples_generator = CodeExampleGenerator(base_url)
         self.sdk_generator = SDKGenerator(base_url, version)
         self.postman_generator = PostmanCollectionGenerator(base_url, version)
-    
+
     def generate_all_documentation(self, output_dir: Path) -> None:
         """Generate all API documentation."""
         output_dir.mkdir(parents=True, exist_ok=True)
-        
+
         print(f"Generating API documentation for SkywarnPlus-NG v{self.version}")
         print(f"Base URL: {self.base_url}")
         print(f"Output directory: {output_dir}")
-        
+
         # Generate OpenAPI specification
         print("Generating OpenAPI specification...")
         self.openapi_generator.save_spec(str(output_dir / "openapi.json"))
-        
+
         # Save YAML spec
         yaml_spec = self.openapi_generator.get_yaml_spec()
-        with open(output_dir / "openapi.yaml", 'w', encoding='utf-8') as f:
+        with open(output_dir / "openapi.yaml", "w", encoding="utf-8") as f:
             f.write(yaml_spec)
-        
+
         # Generate interactive documentation
         print("Generating interactive documentation...")
         self.interactive_generator.save_docs(output_dir / "interactive")
-        
+
         # Generate API reference
         print("Generating API reference...")
         api_reference = self.interactive_generator.generate_api_reference()
-        with open(output_dir / "api_reference.md", 'w', encoding='utf-8') as f:
+        with open(output_dir / "api_reference.md", "w", encoding="utf-8") as f:
             f.write(api_reference)
-        
+
         # Generate quickstart guide
         print("Generating quickstart guide...")
         quickstart_guide = self.interactive_generator.generate_quickstart_guide()
-        with open(output_dir / "quickstart_guide.md", 'w', encoding='utf-8') as f:
+        with open(output_dir / "quickstart_guide.md", "w", encoding="utf-8") as f:
             f.write(quickstart_guide)
-        
+
         # Generate code examples
         print("Generating code examples...")
         self._generate_code_examples(output_dir)
-        
+
         # Generate SDKs
         print("Generating SDKs...")
         self.sdk_generator.generate_all_sdks(output_dir / "sdks")
-        
+
         # Generate Postman collection
         print("Generating Postman collection...")
-        self.postman_generator.save_collection(str(output_dir / "skywarnplus-ng-api.postman_collection.json"))
-        self.postman_generator.save_environment(str(output_dir / "skywarnplus-ng-environment.postman_environment.json"))
-        
+        self.postman_generator.save_collection(
+            str(output_dir / "skywarnplus-ng-api.postman_collection.json")
+        )
+        self.postman_generator.save_environment(
+            str(output_dir / "skywarnplus-ng-environment.postman_environment.json")
+        )
+
         # Generate main documentation index
         print("Generating documentation index...")
         self._generate_documentation_index(output_dir)
-        
+
         print("✅ API documentation generation complete!")
         print(f"📁 Documentation available at: {output_dir}")
         print(f"🌐 Interactive docs: {output_dir / 'interactive' / 'swagger.html'}")
@@ -84,58 +88,54 @@ class APIDocumentationGenerator:
         print(f"🚀 Quickstart guide: {output_dir / 'quickstart_guide.md'}")
         print(f"💻 SDKs: {output_dir / 'sdks'}")
         print(f"📮 Postman collection: {output_dir / 'skywarnplus-ng-api.postman_collection.json'}")
-    
+
     def _generate_code_examples(self, output_dir: Path) -> None:
         """Generate code examples in multiple languages."""
         examples_dir = output_dir / "examples"
         examples_dir.mkdir(exist_ok=True)
-        
+
         # Generate all examples
         all_examples = self.code_examples_generator.generate_all_examples()
-        
+
         for language, examples in all_examples.items():
             lang_dir = examples_dir / language
             lang_dir.mkdir(exist_ok=True)
-            
+
             # Generate individual example files
             for example in examples:
                 filename = f"{example.title.lower().replace(' ', '_').replace('(', '').replace(')', '')}.{self._get_file_extension(language)}"
                 filepath = lang_dir / filename
-                
-                with open(filepath, 'w', encoding='utf-8') as f:
+
+                with open(filepath, "w", encoding="utf-8") as f:
                     f.write(f"# {example.title}\n\n")
                     f.write(f"{example.description}\n\n")
                     f.write(f"**Endpoint:** `{example.method} {example.endpoint}`\n\n")
                     f.write(f"```{language}\n{example.code}\n```\n")
-            
+
             # Generate combined examples file
             combined_file = lang_dir / f"all_examples.{self._get_file_extension(language)}"
-            with open(combined_file, 'w', encoding='utf-8') as f:
+            with open(combined_file, "w", encoding="utf-8") as f:
                 f.write(f"# SkywarnPlus-NG API Examples - {language.title()}\n\n")
                 f.write("Complete collection of API examples for SkywarnPlus-NG.\n\n")
                 f.write(f"Base URL: {self.base_url}\n")
                 f.write(f"API Version: {self.version}\n\n")
-                
+
                 for example in examples:
                     f.write(f"## {example.title}\n\n")
                     f.write(f"{example.description}\n\n")
                     f.write(f"**Endpoint:** `{example.method} {example.endpoint}`\n\n")
                     f.write(f"```{language}\n{example.code}\n```\n\n")
-        
+
         # Generate README for examples
         readme_content = self._generate_examples_readme(all_examples)
-        with open(examples_dir / "README.md", 'w', encoding='utf-8') as f:
+        with open(examples_dir / "README.md", "w", encoding="utf-8") as f:
             f.write(readme_content)
-    
+
     def _get_file_extension(self, language: str) -> str:
         """Get file extension for language."""
-        extensions = {
-            "python": "py",
-            "javascript": "js",
-            "curl": "sh"
-        }
+        extensions = {"python": "py", "javascript": "js", "curl": "sh"}
         return extensions.get(language, "txt")
-    
+
     def _generate_examples_readme(self, all_examples: Dict[str, Any]) -> str:
         """Generate README for examples directory."""
         return f"""# SkywarnPlus-NG API Examples
@@ -165,7 +165,7 @@ This directory contains code examples for the SkywarnPlus-NG API in multiple pro
 
 ## Examples by Language
 
-{chr(10).join([f"### {lang.title()}\n\n{chr(10).join([f"- [{example.title}]({lang}/{example.title.lower().replace(' ', '_').replace('(', '').replace(')', '')}.{self._get_file_extension(lang)})" for example in examples])}\n" for lang, examples in all_examples.items()])}
+{chr(10).join([f"### {lang.title()}\n\n{chr(10).join([f'- [{example.title}]({lang}/{example.title.lower().replace(" ", "_").replace("(", "").replace(")", "")}.{self._get_file_extension(lang)})' for example in examples])}\n" for lang, examples in all_examples.items()])}
 
 ## Getting Help
 
@@ -176,9 +176,9 @@ This directory contains code examples for the SkywarnPlus-NG API in multiple pro
 
 ---
 
-**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}
+**Generated on:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}
 """
-    
+
     def _generate_documentation_index(self, output_dir: Path) -> None:
         """Generate main documentation index."""
         index_content = f"""# SkywarnPlus-NG API Documentation
@@ -310,14 +310,14 @@ curl {self.base_url}/api/alerts
 
 ---
 
-**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')}  
+**Generated on:** {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}  
 **API Version:** {self.version}  
 **Base URL:** {self.base_url}
 """
-        
-        with open(output_dir / "README.md", 'w', encoding='utf-8') as f:
+
+        with open(output_dir / "README.md", "w", encoding="utf-8") as f:
             f.write(index_content)
-    
+
     def generate_web_docs_endpoint(self) -> str:
         """Generate HTML for web dashboard docs endpoint."""
         return f"""<!DOCTYPE html>
@@ -469,7 +469,7 @@ curl {self.base_url}/api/alerts
             
             <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <p style="color: #6b7280; margin: 0;">
-                    Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S UTC')} | 
+                    Generated on {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")} | 
                     <a href="https://github.com/skywarnplus-ng/skywarnplus-ng" style="color: #3b82f6;">GitHub Repository</a>
                 </p>
             </div>

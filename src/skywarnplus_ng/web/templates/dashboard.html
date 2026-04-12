@@ -55,6 +55,11 @@
         </span>
     </div>
 
+    <div id="nws-fetch-warning" class="hidden mb-6 p-4 rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/25" role="alert">
+        <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">NWS feed warning</p>
+        <p id="nws-fetch-warning-detail" class="mt-1 text-sm text-amber-800 dark:text-amber-200"></p>
+    </div>
+
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div class="card" id="card-status">
             <div class="flex items-center justify-between">
@@ -218,6 +223,20 @@
         if (ot) ot.textContent = audioOk ? 'Available' : 'Not available';
     }
 
+    function updateNwsFetchWarning(status) {
+        var box = document.getElementById('nws-fetch-warning');
+        var detail = document.getElementById('nws-fetch-warning-detail');
+        if (!box || !detail) return;
+        if (status && status.nws_last_error_at) {
+            box.classList.remove('hidden');
+            var msg = status.nws_last_error_message || 'The last poll did not retrieve fresh data from the NWS API.';
+            var when = formatRelativeTime(status.nws_last_error_at);
+            detail.innerHTML = escHtml(msg) + ' <span class="text-amber-700 dark:text-amber-300">(as of ' + escHtml(when) + ')</span>';
+        } else {
+            box.classList.add('hidden');
+        }
+    }
+
     // Format uptime
     function formatUptime(seconds) {
         const hours = Math.floor(seconds / 3600);
@@ -261,6 +280,7 @@
             indicatorElement.className = 'status-indicator status-unhealthy';
         }
         updateConnectivityStrip(status);
+        updateNwsFetchWarning(status);
     }
 
     // Update active alerts count

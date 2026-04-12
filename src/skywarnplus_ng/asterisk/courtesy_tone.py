@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class CourtesyToneError(Exception):
     """Courtesy tone error."""
+
     pass
 
 
@@ -31,7 +32,7 @@ class CourtesyToneManager:
         tone_dir: Path,
         tones_config: Dict[str, Dict[str, str]],
         ct_alerts: List[str],
-        state_manager=None
+        state_manager=None,
     ):
         """
         Initialize courtesy tone manager.
@@ -58,7 +59,7 @@ class CourtesyToneManager:
         if self.state_manager:
             try:
                 state = self.state_manager.load_state()
-                self.current_mode = state.get('ct')
+                self.current_mode = state.get("ct")
                 if self.current_mode:
                     logger.debug(f"Loaded CT mode from state: {self.current_mode}")
             except Exception as e:
@@ -83,13 +84,15 @@ class CourtesyToneManager:
             return False
 
         alert_events = {alert.event for alert in alerts}
-        
+
         for alert_event in alert_events:
             for ct_alert_pattern in self.ct_alerts:
                 if fnmatch.fnmatch(alert_event, ct_alert_pattern):
-                    logger.debug(f"Alert {alert_event} matches CT trigger pattern: {ct_alert_pattern}")
+                    logger.debug(
+                        f"Alert {alert_event} matches CT trigger pattern: {ct_alert_pattern}"
+                    )
                     return True
-        
+
         return False
 
     def _copy_tone_file(self, source_file: Path, dest_file: Path) -> bool:
@@ -130,7 +133,7 @@ class CourtesyToneManager:
             return False
 
         mode = mode.lower()
-        if mode not in ['normal', 'wx']:
+        if mode not in ["normal", "wx"]:
             logger.error(f"Invalid courtesy tone mode: {mode} (must be 'normal' or 'wx')")
             return False
 
@@ -147,17 +150,17 @@ class CourtesyToneManager:
         for ct_key, tone_settings in self.tones_config.items():
             # Get target tone file for this mode
             target_tone_file = tone_settings.get(mode_key)
-            
+
             if not target_tone_file:
                 logger.warning(f"No {mode_key} tone configured for {ct_key}, skipping")
                 continue
 
             # Source file: tone_dir/target_tone_file
             source_file = self.tone_dir / target_tone_file
-            
+
             # Destination file: tone_dir/ct_key.ulaw (or whatever extension source has)
             # Preserve extension from source file
-            dest_ext = source_file.suffix if source_file.suffix else '.ulaw'
+            dest_ext = source_file.suffix if source_file.suffix else ".ulaw"
             dest_file = self.tone_dir / f"{ct_key}{dest_ext}"
 
             if self._copy_tone_file(source_file, dest_file):
@@ -169,12 +172,12 @@ class CourtesyToneManager:
         if changed:
             self.current_mode = mode
             logger.info(f"Courtesy tones changed to {mode} mode")
-            
+
             # Update state if state manager is available
             if self.state_manager:
                 try:
                     state = self.state_manager.load_state()
-                    state['ct'] = mode
+                    state["ct"] = mode
                     self.state_manager.save_state(state)
                 except Exception as e:
                     logger.warning(f"Failed to update state with CT mode: {e}")
@@ -213,4 +216,3 @@ class CourtesyToneManager:
             True if change was successful
         """
         return self.change_mode(mode)
-

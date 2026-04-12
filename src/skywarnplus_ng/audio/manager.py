@@ -37,24 +37,27 @@ class AudioManager:
         self.config = config
         self.tts_engine = self._create_tts_engine(config.tts)
         self._fallback_tts_engine: Optional[GTTSEngine] = None
-        
+
         # Ensure directories exist
         self.config.sounds_path.mkdir(parents=True, exist_ok=True)
         self.config.temp_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Ensure temp directory is readable by asterisk user (chmod 755)
         try:
             os.chmod(self.config.temp_dir, 0o755)
             logger.debug(f"Set permissions on temp directory: {self.config.temp_dir}")
         except Exception as e:
             logger.warning(f"Failed to set permissions on temp directory: {e}")
-        
+
         # Validate TTS engine with fallback to gTTS if Piper fails
         if not self.tts_engine.is_available():
             if config.tts.engine.lower() == "piper":
-                logger.warning("Piper TTS is not available or failed to initialize. Falling back to gTTS.")
+                logger.warning(
+                    "Piper TTS is not available or failed to initialize. Falling back to gTTS."
+                )
                 # Create a gTTS config from the existing config
                 from ..core.config import TTSConfig
+
                 gtts_config = TTSConfig(
                     engine="gtts",
                     language=config.tts.language or "en",
@@ -62,7 +65,7 @@ class AudioManager:
                     slow=config.tts.slow or False,
                     output_format=config.tts.output_format,
                     sample_rate=config.tts.sample_rate,
-                    bit_rate=config.tts.bit_rate
+                    bit_rate=config.tts.bit_rate,
                 )
                 self.tts_engine = GTTSEngine(gtts_config)
                 if not self.tts_engine.is_available():
@@ -85,7 +88,7 @@ class AudioManager:
             AudioManagerError: If engine type is unsupported
         """
         engine_type = tts_config.engine.lower()
-        
+
         if engine_type == "gtts":
             return GTTSEngine(tts_config)
         elif engine_type == "piper":
@@ -101,7 +104,9 @@ class AudioManager:
                 # Don't raise here - let the fallback mechanism handle it
                 raise
         else:
-            raise AudioManagerError(f"Unsupported TTS engine: {engine_type}. Supported engines: 'gtts', 'piper'")
+            raise AudioManagerError(
+                f"Unsupported TTS engine: {engine_type}. Supported engines: 'gtts', 'piper'"
+            )
 
     def _get_fallback_tts_engine(self) -> Optional[GTTSEngine]:
         """
@@ -155,7 +160,7 @@ class AudioManager:
         alert: WeatherAlert,
         suffix_file: Optional[str] = None,
         county_audio_files: Optional[List[str]] = None,
-        with_multiples: bool = False
+        with_multiples: bool = False,
     ) -> Optional[Path]:
         """
         Generate audio for a weather alert.
@@ -175,27 +180,29 @@ class AudioManager:
             if with_multiples:
                 alert_text += ", with multiples"
             logger.info(f"Generating audio for alert: {alert.event}")
-            
+
             # Generate unique filename
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"alert_{alert.id}_{timestamp}.{self.config.tts.output_format}"
             output_path = self.config.temp_dir / filename
-            
+
             # Synthesize audio
             engine_used, audio_path = self._synthesize_with_optional_fallback(
                 alert_text,
                 output_path,
                 allow_fallback=False,
             )
-            
+
             # Validate generated audio
             if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated audio file is invalid: {audio_path}")
                 return None
-            
+
             # Append county audio files if provided
             if county_audio_files:
-                logger.info(f"Appending {len(county_audio_files)} county audio file(s): {county_audio_files} (sounds_path: {self.config.sounds_path})")
+                logger.info(
+                    f"Appending {len(county_audio_files)} county audio file(s): {county_audio_files} (sounds_path: {self.config.sounds_path})"
+                )
                 new_audio_path = self._append_county_audio(audio_path, county_audio_files)
                 if new_audio_path:
                     # County audio append succeeded, use the combined file
@@ -206,8 +213,10 @@ class AudioManager:
                     # Keep using the original audio_path (don't regenerate)
                     logger.info(f"Using original audio without counties: {audio_path}")
             else:
-                logger.info(f"No county audio files provided for alert {alert.id} (county_audio_files is {county_audio_files})")
-            
+                logger.info(
+                    f"No county audio files provided for alert {alert.id} (county_audio_files is {county_audio_files})"
+                )
+
             # Append suffix if provided
             if suffix_file:
                 new_audio_path = self._append_suffix_audio(audio_path, suffix_file)
@@ -219,17 +228,17 @@ class AudioManager:
                     logger.warning(f"Failed to append suffix {suffix_file}, using original audio")
                     # Keep using the existing audio_path (don't regenerate)
                     logger.debug(f"Using original audio without suffix: {audio_path}")
-            
+
             # Get audio duration
             duration = engine_used.get_audio_duration(audio_path)
-            
+
             # Ensure asterisk user can read the file (chmod 644)
             try:
                 os.chmod(audio_path, 0o644)
                 logger.debug(f"Set permissions on audio file: {audio_path}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions on audio file: {e}")
-            
+
             # Ensure file is flushed to disk and verify it exists
             try:
                 import time
@@ -239,28 +248,28 @@ class AudioManager:
                     os.sync()  # Sync filesystem buffers
                 except (OSError, AttributeError):
                     pass  # os.sync may raise OSError or be missing on some systems
-                
+
                 # Small delay to ensure filesystem has the file
                 time.sleep(0.1)
-                
+
                 # Verify file exists and has content
                 if not audio_path.exists():
                     logger.error(f"Audio file does not exist after creation: {audio_path}")
                     return None
-                
+
                 file_stat = audio_path.stat()
                 if file_stat.st_size == 0:
                     logger.error(f"Audio file is empty after creation: {audio_path}")
                     return None
-                
+
                 logger.debug(f"Audio file verified: {audio_path} ({file_stat.st_size} bytes)")
             except Exception as e:
                 logger.error(f"Failed to verify audio file: {e}", exc_info=True)
-            
+
             logger.info(f"Generated alert audio: {audio_path} (duration: {duration:.1f}s)")
-            
+
             return audio_path
-            
+
         except TTSEngineError as e:
             logger.error(f"TTS engine error generating alert audio: {e}")
             return None
@@ -281,24 +290,24 @@ class AudioManager:
         try:
             all_clear_text = "The National Weather Service has cleared all alerts."
             logger.info("Generating all-clear audio")
-            
+
             # Generate unique filename
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             filename = f"allclear_{timestamp}.{self.config.tts.output_format}"
             output_path = self.config.temp_dir / filename
-            
+
             # Synthesize audio
             engine_used, audio_path = self._synthesize_with_optional_fallback(
                 all_clear_text,
                 output_path,
                 allow_fallback=False,
             )
-            
+
             # Validate generated audio
             if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated all-clear audio file is invalid: {audio_path}")
                 return None
-            
+
             # Append suffix if provided
             if suffix_file:
                 audio_path = self._append_suffix_audio(audio_path, suffix_file)
@@ -309,21 +318,21 @@ class AudioManager:
                     filename = f"allclear_{timestamp}.{self.config.tts.output_format}"
                     output_path = self.config.temp_dir / filename
                     audio_path = self.tts_engine.synthesize(all_clear_text, output_path)
-            
+
             # Get audio duration
             duration = engine_used.get_audio_duration(audio_path)
-            
+
             # Ensure asterisk user can read the file (chmod 644)
             try:
                 os.chmod(audio_path, 0o644)
                 logger.debug(f"Set permissions on audio file: {audio_path}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions on audio file: {e}")
-            
+
             logger.info(f"Generated all-clear audio: {audio_path} (duration: {duration:.1f}s)")
-            
+
             return audio_path
-            
+
         except TTSEngineError as e:
             logger.error(f"TTS engine error generating all-clear audio: {e}")
             return None
@@ -334,7 +343,7 @@ class AudioManager:
     def _create_alert_text(self, alert: WeatherAlert) -> str:
         """
         Create text for alert announcement.
-        
+
         Only announces the alert type, matching original SkywarnPlus behavior.
 
         Args:
@@ -356,7 +365,7 @@ class AudioManager:
         sound_path = self.config.sounds_path / self.config.alert_sound
         if sound_path.exists():
             return sound_path
-        
+
         logger.warning(f"Alert sound file not found: {sound_path}")
         return None
 
@@ -370,7 +379,7 @@ class AudioManager:
         sound_path = self.config.sounds_path / self.config.all_clear_sound
         if sound_path.exists():
             return sound_path
-        
+
         logger.warning(f"All-clear sound file not found: {sound_path}")
         return None
 
@@ -384,7 +393,7 @@ class AudioManager:
         sound_path = self.config.sounds_path / self.config.separator_sound
         if sound_path.exists():
             return sound_path
-        
+
         logger.warning(f"Separator sound file not found: {sound_path}")
         return None
 
@@ -400,10 +409,10 @@ class AudioManager:
         """
         if not self.config.temp_dir.exists():
             return 0
-        
+
         cutoff_time = datetime.now(timezone.utc).timestamp() - (max_age_hours * 3600)
         cleaned_count = 0
-        
+
         for file_path in self.config.temp_dir.iterdir():
             if file_path.is_file():
                 try:
@@ -414,46 +423,48 @@ class AudioManager:
                         logger.debug(f"Cleaned up old audio file: {file_path}")
                 except OSError as e:
                     logger.warning(f"Failed to clean up file {file_path}: {e}")
-        
+
         if cleaned_count > 0:
             logger.info(f"Cleaned up {cleaned_count} old audio files")
-        
+
         return cleaned_count
 
     def cleanup_alert_audio(self, alert_id: str) -> int:
         """
         Clean up audio files for a specific alert ID.
-        
+
         Args:
             alert_id: Alert ID to clean up files for
-            
+
         Returns:
             Number of files cleaned up
         """
         if not self.config.temp_dir.exists():
             return 0
-        
+
         cleaned_count = 0
-        
+
         # Check for files matching patterns: alert_{alert_id}_*.ulaw, tail_alert_{alert_id}.ulaw
         # Also handles variations (ulaw, wav, etc.)
         import fnmatch
+
         for file_path in self.config.temp_dir.iterdir():
             if file_path.is_file():
                 try:
                     filename = file_path.name
                     # Check if file matches any pattern
-                    if (fnmatch.fnmatch(filename, f"alert_{alert_id}_*") or 
-                        fnmatch.fnmatch(filename, f"tail_alert_{alert_id}.*")):
+                    if fnmatch.fnmatch(filename, f"alert_{alert_id}_*") or fnmatch.fnmatch(
+                        filename, f"tail_alert_{alert_id}.*"
+                    ):
                         file_path.unlink()
                         cleaned_count += 1
                         logger.debug(f"Cleaned up audio file for alert {alert_id}: {file_path}")
                 except OSError as e:
                     logger.warning(f"Failed to clean up file {file_path}: {e}")
-        
+
         if cleaned_count > 0:
             logger.info(f"Cleaned up {cleaned_count} audio file(s) for alert {alert_id}")
-        
+
         return cleaned_count
 
     def get_audio_info(self, audio_path: Path) -> Dict[str, Any]:
@@ -473,65 +484,74 @@ class AudioManager:
             "duration_seconds": 0.0,
             "valid": False,
         }
-        
+
         if audio_path.exists():
             info["size_bytes"] = audio_path.stat().st_size
             info["duration_seconds"] = self.tts_engine.get_audio_duration(audio_path)
             info["valid"] = self.tts_engine.validate_audio_file(audio_path)
-        
+
         return info
 
     def _load_audio_file_for_append(self, audio_path: Path) -> Optional[AudioSegment]:
         """
         Load an audio file for appending, handling ulaw format conversion.
-        
+
         Args:
             audio_path: Path to audio file (may be ulaw, wav, etc.)
-            
+
         Returns:
             AudioSegment or None if failed
         """
         try:
             ext = audio_path.suffix.lower()
-            if ext in ['.ulaw', '.ul']:
+            if ext in [".ulaw", ".ul"]:
                 # For ulaw files, convert to WAV first using ffmpeg
                 import tempfile
                 import subprocess
-                
+
                 with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                     temp_wav_path = Path(temp_wav.name)
-                
+
                 # Convert ulaw to WAV using ffmpeg
                 subprocess.run(
                     [
-                        "ffmpeg", "-y",
-                        "-f", "mulaw",  # Input format: mulaw
-                        "-ar", "8000",  # Sample rate: 8kHz (standard for ulaw)
-                        "-ac", "1",     # Channels: mono
-                        "-i", str(audio_path),
-                        str(temp_wav_path)
+                        "ffmpeg",
+                        "-y",
+                        "-f",
+                        "mulaw",  # Input format: mulaw
+                        "-ar",
+                        "8000",  # Sample rate: 8kHz (standard for ulaw)
+                        "-ac",
+                        "1",  # Channels: mono
+                        "-i",
+                        str(audio_path),
+                        str(temp_wav_path),
                     ],
                     check=True,
                     capture_output=True,
                     timeout=30,
-                    text=True
+                    text=True,
                 )
-                
+
                 # Load the converted WAV file
                 audio = AudioSegment.from_wav(str(temp_wav_path))
-                
+
                 # Clean up temporary file
                 try:
                     temp_wav_path.unlink()
                 except Exception:
                     pass
-                
+
                 return audio
             else:
                 # For other formats, use AudioSegment's auto-detection
                 return AudioSegment.from_file(str(audio_path))
         except subprocess.CalledProcessError as e:
-            error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+            error_msg = (
+                e.stderr
+                if isinstance(e.stderr, str)
+                else (e.stderr.decode() if e.stderr else "Unknown error")
+            )
             logger.error(f"Failed to convert ulaw file {audio_path} to WAV: {error_msg}")
             return None
         except FileNotFoundError:
@@ -541,7 +561,9 @@ class AudioManager:
             logger.error(f"Failed to load audio file {audio_path}: {e}")
             return None
 
-    def _append_county_audio(self, main_audio_path: Path, county_audio_files: List[str]) -> Optional[Path]:
+    def _append_county_audio(
+        self, main_audio_path: Path, county_audio_files: List[str]
+    ) -> Optional[Path]:
         """
         Append county audio files to the main audio file.
 
@@ -561,25 +583,29 @@ class AudioManager:
                 return None
             # Ensure 8kHz mono for Asterisk compatibility (required for ulaw)
             main_audio = main_audio.set_frame_rate(8000).set_channels(1)
-            
+
             combined = main_audio
             appended_counties: List[str] = []
             missing_files: List[str] = []
             failed_loads: List[str] = []
-            
+
             for county_file in county_audio_files:
                 county_path = self.config.sounds_path / county_file
-                logger.info(f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})")
-                
+                logger.info(
+                    f"Looking for county audio file: {county_path} (resolved from sounds_path: {self.config.sounds_path}, filename: {county_file})"
+                )
+
                 if not county_path.exists():
-                    logger.warning(f"County audio file not found: {county_path} (sounds_path: {self.config.sounds_path})")
+                    logger.warning(
+                        f"County audio file not found: {county_path} (sounds_path: {self.config.sounds_path})"
+                    )
                     missing_files.append(county_file)
                     continue
-                
+
                 # Skip duplicates
                 if county_file in appended_counties:
                     continue
-                
+
                 # Load county audio (handles ulaw conversion if needed)
                 logger.info(f"Loading county audio file: {county_path}")
                 county_audio = self._load_audio_file_for_append(county_path)
@@ -588,44 +614,50 @@ class AudioManager:
                     failed_loads.append(county_file)
                     continue
                 county_audio = county_audio.set_frame_rate(8000).set_channels(1)
-                logger.info(f"Successfully loaded county audio file: {county_file} (duration: {len(county_audio)/1000:.2f}s)")
-                
+                logger.info(
+                    f"Successfully loaded county audio file: {county_file} (duration: {len(county_audio) / 1000:.2f}s)"
+                )
+
                 # Add spacing: 600ms before first county, 400ms before others
                 spacing = AudioSegment.silent(duration=600 if not appended_counties else 400)
                 combined = combined + spacing + county_audio
                 appended_counties.append(county_file)
-            
+
             if missing_files:
                 logger.warning(f"Missing county audio files: {missing_files}")
             if failed_loads:
-                logger.warning(f"Failed to load county audio files (conversion errors): {failed_loads}")
+                logger.warning(
+                    f"Failed to load county audio files (conversion errors): {failed_loads}"
+                )
             if not appended_counties:
                 logger.warning("No county audio could be appended; returning original alert audio")
                 return main_audio_path
-            
+
             # Add final spacing after last county
             combined = combined + AudioSegment.silent(duration=600)
-            
+
             # Create new filename for combined audio
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             base_name = main_audio_path.stem
-            combined_filename = f"{base_name}_with_counties_{timestamp}.{self.config.tts.output_format}"
+            combined_filename = (
+                f"{base_name}_with_counties_{timestamp}.{self.config.tts.output_format}"
+            )
             combined_path = self.config.temp_dir / combined_filename
-            
+
             # Export combined audio in the configured format
             if self.config.tts.output_format.lower() in ["ulaw", "mulaw", "ul"]:
                 # For ulaw, export as raw and convert
                 self._export_to_ulaw(combined, combined_path)
             else:
                 combined.export(str(combined_path), format=self.config.tts.output_format)
-            
+
             # Ensure asterisk user can read the file
             try:
                 os.chmod(combined_path, 0o644)
                 logger.debug(f"Set permissions on combined audio file: {combined_path}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions on combined audio file: {e}")
-            
+
             # Verify the file exists and has content
             if not combined_path.exists():
                 logger.error(f"Combined audio file does not exist after creation: {combined_path}")
@@ -633,10 +665,12 @@ class AudioManager:
             if combined_path.stat().st_size == 0:
                 logger.error(f"Combined audio file is empty after creation: {combined_path}")
                 return None
-            
-            logger.info(f"Appended {len(appended_counties)} county audio files to audio: {combined_path}")
+
+            logger.info(
+                f"Appended {len(appended_counties)} county audio files to audio: {combined_path}"
+            )
             return combined_path
-            
+
         except Exception as e:
             logger.error(f"Failed to append county audio: {e}")
             return None
@@ -644,33 +678,34 @@ class AudioManager:
     def _export_to_ulaw(self, audio: AudioSegment, output_path: Path) -> None:
         """
         Export audio segment to ulaw format using ffmpeg.
-        
+
         Args:
             audio: AudioSegment to export
             output_path: Path for output ulaw file
         """
         # Ensure 8kHz mono for ulaw
         audio = audio.set_frame_rate(8000).set_channels(1)
-        
+
         # Use AudioSegment's built-in ulaw export
         try:
             audio.export(str(output_path), format="ulaw")
-            
+
             # Verify file was created (with retry for filesystem sync)
             import time
+
             for attempt in range(5):  # Retry up to 5 times
                 if output_path.exists() and output_path.stat().st_size > 0:
                     break
                 if attempt < 4:  # Don't sleep on last attempt
                     time.sleep(0.05)  # 50ms delay
-            
+
             if not output_path.exists():
                 logger.error(f"FFmpeg output file does not exist: {output_path}")
                 raise AudioManagerError(
                     f"FFmpeg did not create output file: {output_path}. "
                     f"Check disk space and permissions."
                 )
-            
+
             file_size = output_path.stat().st_size
             if file_size == 0:
                 logger.error(f"FFmpeg created empty file: {output_path}")
@@ -678,7 +713,7 @@ class AudioManager:
                     f"FFmpeg created empty ulaw file: {output_path}. "
                     f"The input audio may be invalid or corrupted."
                 )
-            
+
             logger.debug(f"Exported to ulaw: {output_path} ({file_size} bytes)")
         except RuntimeError as e:
             logger.error(f"Failed to export to ulaw: {e}")
@@ -703,53 +738,59 @@ class AudioManager:
         """
         try:
             suffix_path = self.config.sounds_path / suffix_filename
-            
+
             if not suffix_path.exists():
                 logger.warning(f"Suffix audio file not found: {suffix_path}")
                 return None
-            
+
             # Load both audio files
             main_audio = AudioSegment.from_file(str(main_audio_path))
             suffix_audio = AudioSegment.from_file(str(suffix_path))
-            
+
             # Convert to same format (8000Hz mono for Asterisk compatibility)
             main_audio = main_audio.set_frame_rate(8000).set_channels(1)
             suffix_audio = suffix_audio.set_frame_rate(8000).set_channels(1)
-            
+
             # Combine: main audio + 500ms silence + suffix
             combined = main_audio + AudioSegment.silent(duration=500) + suffix_audio
-            
+
             # Create new filename for combined audio
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             base_name = main_audio_path.stem
-            combined_filename = f"{base_name}_with_suffix_{timestamp}.{self.config.tts.output_format}"
+            combined_filename = (
+                f"{base_name}_with_suffix_{timestamp}.{self.config.tts.output_format}"
+            )
             combined_path = self.config.temp_dir / combined_filename
-            
+
             # Export combined audio in the configured format
             if self.config.tts.output_format.lower() in ["ulaw", "mulaw", "ul"]:
                 # For ulaw, export as raw and convert
                 self._export_to_ulaw(combined, combined_path)
             else:
                 combined.export(str(combined_path), format=self.config.tts.output_format)
-            
+
             # Ensure asterisk user can read the file
             try:
                 os.chmod(combined_path, 0o644)
                 logger.debug(f"Set permissions on combined audio file: {combined_path}")
             except Exception as e:
                 logger.warning(f"Failed to set permissions on combined audio file: {e}")
-            
+
             # Verify the file exists and has content
             if not combined_path.exists():
-                logger.error(f"Combined audio file with suffix does not exist after creation: {combined_path}")
+                logger.error(
+                    f"Combined audio file with suffix does not exist after creation: {combined_path}"
+                )
                 return None
             if combined_path.stat().st_size == 0:
-                logger.error(f"Combined audio file with suffix is empty after creation: {combined_path}")
+                logger.error(
+                    f"Combined audio file with suffix is empty after creation: {combined_path}"
+                )
                 return None
-            
+
             logger.debug(f"Appended suffix {suffix_filename} to audio: {combined_path}")
             return combined_path
-            
+
         except Exception as e:
             logger.error(f"Failed to append suffix audio: {e}")
             return None
@@ -766,52 +807,52 @@ class AudioManager:
         """
         try:
             # Sanitize filename: remove special chars, replace spaces with underscores
-            sanitized = re.sub(r'[^\w\s-]', '', county_name)  # Remove special chars
-            sanitized = re.sub(r'[-\s]+', '_', sanitized)  # Replace spaces/hyphens with underscore
-            sanitized = sanitized.strip('_')  # Remove leading/trailing underscores
-            
+            sanitized = re.sub(r"[^\w\s-]", "", county_name)  # Remove special chars
+            sanitized = re.sub(r"[-\s]+", "_", sanitized)  # Replace spaces/hyphens with underscore
+            sanitized = sanitized.strip("_")  # Remove leading/trailing underscores
+
             # Determine file extension based on output format
             ext = self.config.tts.output_format
-            if ext == 'wav':
+            if ext == "wav":
                 filename = f"{sanitized}.wav"
-            elif ext == 'mp3':
+            elif ext == "mp3":
                 filename = f"{sanitized}.mp3"
             else:
                 filename = f"{sanitized}.{ext}"
-            
+
             output_path = self.config.sounds_path / filename
-            
+
             # Check if file already exists
             if output_path.exists():
                 logger.info(f"County audio file already exists: {filename}")
                 return filename
-            
+
             logger.info(f"Generating county audio for: {county_name} -> {filename}")
-            
+
             # Ensure "County" is included in TTS text (even if not in county_name)
             # This ensures the audio says "Brazoria County" instead of just "Brazoria"
             tts_text = county_name.strip()
             if not tts_text.lower().endswith("county"):
                 tts_text = f"{tts_text} County"
-            
+
             # Generate audio using TTS (says full county name with "County" suffix)
             engine_used, audio_path = self._synthesize_with_optional_fallback(
                 tts_text,
                 output_path,
                 allow_fallback=True,
             )
-            
+
             # Validate generated audio
             if not engine_used.validate_audio_file(audio_path):
                 logger.error(f"Generated county audio file is invalid: {audio_path}")
                 return None
-            
+
             # Get audio duration
             duration = engine_used.get_audio_duration(audio_path)
             logger.info(f"Generated county audio: {filename} (duration: {duration:.1f}s)")
-            
+
             return filename
-            
+
         except TTSEngineError as e:
             logger.error(f"TTS engine error generating county audio: {e}")
             return None
@@ -832,16 +873,16 @@ class AudioManager:
         """
         try:
             dest_path = self.config.sounds_path / filename
-            
+
             # Ensure destination directory exists
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Copy file
             shutil.copy2(source_path, dest_path)
-            
+
             logger.debug(f"Copied audio file: {source_path} -> {dest_path}")
             return dest_path
-            
+
         except Exception as e:
             logger.error(f"Failed to copy audio file: {e}")
             return None

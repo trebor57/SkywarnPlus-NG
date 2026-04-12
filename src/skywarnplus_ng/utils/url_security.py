@@ -48,13 +48,7 @@ def validate_public_https_webhook_url(url: str) -> Tuple[bool, str]:
 
     try:
         ip = ipaddress.ip_address(host)
-        if (
-            ip.is_private
-            or ip.is_loopback
-            or ip.is_link_local
-            or ip.is_reserved
-            or ip.is_multicast
-        ):
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
             return False, "Webhook URL must not target private, loopback, or non-public addresses"
     except ValueError:
         pass

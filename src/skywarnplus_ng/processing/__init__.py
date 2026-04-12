@@ -11,11 +11,11 @@ from .workflows import AlertWorkflow, WorkflowEngine, ResponseAction
 
 __all__ = [
     "AlertProcessingPipeline",
-    "AlertProcessor", 
+    "AlertProcessor",
     "ProcessingError",
     "AlertFilter",
     "GeographicFilter",
-    "TimeFilter", 
+    "TimeFilter",
     "SeverityFilter",
     "CustomRuleFilter",
     "AlertDeduplicator",

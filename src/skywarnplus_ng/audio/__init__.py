@@ -9,7 +9,7 @@ from .tail_message import TailMessageManager, TailMessageError
 __all__ = [
     "GTTSEngine",
     "PiperTSEngine",
-    "TTSEngineError", 
+    "TTSEngineError",
     "AudioManager",
     "AudioManagerError",
     "TailMessageManager",

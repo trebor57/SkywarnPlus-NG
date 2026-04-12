@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 class TailMessageError(Exception):
     """Tail message error."""
+
     pass
 
 
@@ -37,7 +38,7 @@ class TailMessageManager:
         tail_message_path: Path,
         audio_delay_ms: int = 0,
         with_county_names: bool = False,
-        suffix_file: Optional[str] = None
+        suffix_file: Optional[str] = None,
     ):
         """
         Initialize tail message manager.
@@ -59,7 +60,7 @@ class TailMessageManager:
         self.with_county_names = with_county_names
         self.suffix_file = suffix_file
         self.tts_engine = AudioManager._create_tts_engine(audio_config.tts)
-        
+
         # Ensure output directory exists
         self.tail_message_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -80,7 +81,9 @@ class TailMessageManager:
         # Check if alert is blocked from tail message
         for blocked_pattern in self.filtering_config.tail_message_blocked:
             if fnmatch.fnmatch(alert.event, blocked_pattern):
-                logger.debug(f"Alert {alert.event} blocked from tail message by pattern: {blocked_pattern}")
+                logger.debug(
+                    f"Alert {alert.event} blocked from tail message by pattern: {blocked_pattern}"
+                )
                 return False
 
         return True
@@ -102,45 +105,54 @@ class TailMessageManager:
         try:
             # Determine format from extension
             ext = file_path.suffix.lower()
-            if ext == '.wav':
+            if ext == ".wav":
                 return AudioSegment.from_wav(str(file_path))
-            elif ext == '.mp3':
+            elif ext == ".mp3":
                 return AudioSegment.from_mp3(str(file_path))
-            elif ext in ['.ulaw', '.ul']:
+            elif ext in [".ulaw", ".ul"]:
                 # For ulaw files, convert to WAV using ffmpeg first, then load
                 try:
                     # Create temporary WAV file
                     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
                         temp_wav_path = Path(temp_wav.name)
-                    
+
                     # Convert ulaw to WAV using ffmpeg
                     subprocess.run(
                         [
-                            "ffmpeg", "-y",
-                            "-f", "mulaw",  # Input format: mulaw
-                            "-ar", "8000",  # Sample rate: 8kHz (standard for ulaw)
-                            "-ac", "1",     # Channels: mono
-                            "-i", str(file_path),
-                            str(temp_wav_path)
+                            "ffmpeg",
+                            "-y",
+                            "-f",
+                            "mulaw",  # Input format: mulaw
+                            "-ar",
+                            "8000",  # Sample rate: 8kHz (standard for ulaw)
+                            "-ac",
+                            "1",  # Channels: mono
+                            "-i",
+                            str(file_path),
+                            str(temp_wav_path),
                         ],
                         check=True,
                         capture_output=True,
                         timeout=30,
-                        text=True
+                        text=True,
                     )
-                    
+
                     # Load the converted WAV file
                     audio = AudioSegment.from_wav(str(temp_wav_path))
-                    
+
                     # Clean up temporary file
                     try:
                         temp_wav_path.unlink()
                     except OSError as e:
                         logger.debug(f"Failed to cleanup temp file {temp_wav_path}: {e}")
-                    
+
                     return audio
                 except subprocess.CalledProcessError as e:
-                    error_msg = e.stderr if isinstance(e.stderr, str) else (e.stderr.decode() if e.stderr else 'Unknown error')
+                    error_msg = (
+                        e.stderr
+                        if isinstance(e.stderr, str)
+                        else (e.stderr.decode() if e.stderr else "Unknown error")
+                    )
                     logger.error(
                         f"Failed to convert ulaw file {file_path} to WAV: {error_msg}. "
                         f"Ensure the file is a valid ulaw file and ffmpeg is properly installed."
@@ -177,11 +189,11 @@ class TailMessageManager:
             Text representation of the alert
         """
         text = alert.event
-        
+
         # Add county names if enabled
         if self.with_county_names and alert.area_desc:
             text += f" for {alert.area_desc}"
-        
+
         return text
 
     def build_tail_message(self, alerts: List[WeatherAlert]) -> bool:
@@ -212,28 +224,31 @@ class TailMessageManager:
                 # Build tail message from alerts (use 1ms silence as accumulator;
                 # AudioData rejects empty, and we append separator/alert/silence below)
                 combined_sound = AudioSegment.silent(duration=1)
-                
+
                 # Load separator sound if available
                 separator_path = self.audio_config.sounds_path / self.audio_config.separator_sound
                 separator_sound = self._load_audio_file(separator_path)
-                
+
                 # Generate audio for each alert
                 temp_files_to_cleanup = []
                 for i, alert in enumerate(included_alerts):
                     logger.debug(f"Adding alert to tail message: {alert.event}")
-                    
+
                     # Add separator before each alert (except first)
                     if i > 0 and separator_sound:
                         combined_sound += separator_sound
-                    
+
                     # Generate TTS audio for alert text
                     alert_text = self._generate_alert_text_segment(alert)
                     logger.debug(f"Generating TTS for tail message: {alert_text}")
-                    
+
                     # Create temporary file for this alert's audio
-                    temp_alert_file = self.audio_config.temp_dir / f"tail_alert_{alert.id}.{self.audio_config.tts.output_format}"
+                    temp_alert_file = (
+                        self.audio_config.temp_dir
+                        / f"tail_alert_{alert.id}.{self.audio_config.tts.output_format}"
+                    )
                     temp_files_to_cleanup.append(temp_alert_file)
-                    
+
                     try:
                         # Generate TTS audio
                         alert_audio_path = self.tts_engine.synthesize(alert_text, temp_alert_file)
@@ -244,7 +259,9 @@ class TailMessageManager:
                                 # Add small silence between alerts
                                 combined_sound += AudioSegment.silent(duration=200)
                             else:
-                                logger.warning(f"Failed to load generated audio for alert: {alert.event}")
+                                logger.warning(
+                                    f"Failed to load generated audio for alert: {alert.event}"
+                                )
                         else:
                             logger.warning(f"Failed to generate audio for alert: {alert.event}")
                     except Exception as e:
@@ -278,7 +295,7 @@ class TailMessageManager:
             # Export to tail message file
             logger.info(f"Writing tail message to {self.tail_message_path}")
             combined_sound.export(str(self.tail_message_path), format="wav")
-            
+
             return True
 
         except Exception as e:
@@ -298,11 +315,11 @@ class TailMessageManager:
         # Convert to mono if needed
         if audio.channels > 1:
             audio = audio.set_channels(1)
-        
+
         # Resample to target sample rate
         if audio.frame_rate != self.audio_config.tts.sample_rate:
             audio = audio.set_frame_rate(self.audio_config.tts.sample_rate)
-        
+
         return audio
 
     def _remove_tail_message(self) -> None:
@@ -325,4 +342,3 @@ class TailMessageManager:
             True if update was successful
         """
         return self.build_tail_message(alerts)
-

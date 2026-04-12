@@ -194,9 +194,7 @@ class NWSClient:
             sender_name=props.get("senderName", ""),
         )
 
-    async def _fetch_with_retry(
-        self, url: str, retry_count: int = 0
-    ) -> Optional[Dict[str, Any]]:
+    async def _fetch_with_retry(self, url: str, retry_count: int = 0) -> Optional[Dict[str, Any]]:
         """
         Fetch data from NWS API with retry logic.
 
@@ -216,7 +214,7 @@ class NWSClient:
                 logger.warning(
                     f"Server error {e.response.status_code}, retrying... ({retry_count + 1}/{self.max_retries})"
                 )
-                await asyncio.sleep(2 ** retry_count)  # Exponential backoff
+                await asyncio.sleep(2**retry_count)  # Exponential backoff
                 return await self._fetch_with_retry(url, retry_count + 1)
             else:
                 logger.error(f"HTTP error: {e.response.status_code} - {e.response.text}")
@@ -224,7 +222,7 @@ class NWSClient:
         except httpx.RequestError as e:
             if retry_count < self.max_retries:
                 logger.warning(f"Request error, retrying... ({retry_count + 1}/{self.max_retries})")
-                await asyncio.sleep(2 ** retry_count)
+                await asyncio.sleep(2**retry_count)
                 return await self._fetch_with_retry(url, retry_count + 1)
             else:
                 logger.error(f"Request error: {e}")
@@ -417,20 +415,20 @@ class NWSClient:
     ) -> List[WeatherAlert]:
         """
         Generate test alerts from injection configuration.
-        
+
         Args:
             inject_config: List of injection alert configurations
             available_counties: List of available county codes to assign
-            
+
         Returns:
             List of generated WeatherAlert objects
         """
         if not inject_config:
             return []
-            
+
         alerts = []
         current_time = datetime.now(timezone.utc)
-        
+
         # Severity mapping based on last word in alert title
         severity_words = {
             "Warning": AlertSeverity.SEVERE,
@@ -438,19 +436,19 @@ class NWSClient:
             "Advisory": AlertSeverity.MINOR,
             "Statement": AlertSeverity.MINOR,
         }
-        
+
         for idx, alert_info in enumerate(inject_config):
             if not isinstance(alert_info, dict):
                 continue
-                
+
             title = alert_info.get("Title", "")
             if not title:
                 continue
-                
+
             # Determine severity from last word
             last_word = title.split()[-1] if title else "Unknown"
             severity = severity_words.get(last_word, AlertSeverity.UNKNOWN)
-            
+
             # Parse end time or default to 1 hour from now
             end_time_str = alert_info.get("EndTime")
             if end_time_str:
@@ -460,23 +458,25 @@ class NWSClient:
                     end_time = current_time + timedelta(hours=1)
             else:
                 end_time = current_time + timedelta(hours=1)
-            
+
             # Get counties to assign
             specified_counties = alert_info.get("CountyCodes", [])
             if not specified_counties:
                 # Assign first X counties where X = alert index + 1
                 county_count = min(idx + 1, len(available_counties))
                 specified_counties = available_counties[:county_count]
-            
+
             # Create one alert per county
             for county in specified_counties:
                 if county not in available_counties:
                     logger.warning(f"County {county} not in configured counties, skipping")
                     continue
-                
+
                 # Generate unique ID
-                alert_id = f"TEST-{title.replace(' ', '_')}-{county}-{int(current_time.timestamp())}"
-                
+                alert_id = (
+                    f"TEST-{title.replace(' ', '_')}-{county}-{int(current_time.timestamp())}"
+                )
+
                 alert = WeatherAlert(
                     id=alert_id,
                     event=title,
@@ -499,10 +499,10 @@ class NWSClient:
                     sender="SkywarnPlus-NG Test Mode",
                     sender_name="Test Alert System",
                 )
-                
+
                 alerts.append(alert)
                 logger.info(f"Generated test alert: {title} for {county}")
-        
+
         return alerts
 
     async def test_connection(self) -> bool:

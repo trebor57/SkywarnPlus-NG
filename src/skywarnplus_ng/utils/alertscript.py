@@ -232,7 +232,7 @@ class AlertScriptManager:
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await process.communicate()
-            
+
             if process.returncode == 0:
                 logger.debug(f"BASH command succeeded: {command}")
                 return True
@@ -265,32 +265,36 @@ class AlertScriptManager:
                 )
                 return False
 
-            dtmf_cmd = f'rpt fun {node} {command}'
+            dtmf_cmd = f"rpt fun {node} {command}"
             logger.info(f"AlertScript: Executing DTMF command on node {node}: {command}")
 
             process = await asyncio.create_subprocess_exec(
-                "sudo", "-n", "-u", "asterisk",
-                str(self.asterisk_path), "-rx", dtmf_cmd,
+                "sudo",
+                "-n",
+                "-u",
+                "asterisk",
+                str(self.asterisk_path),
+                "-rx",
+                dtmf_cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await process.communicate()
-            
+
             if process.returncode == 0:
                 logger.debug(f"DTMF command succeeded on node {node}: {command}")
                 return True
             else:
-                logger.warning(f"DTMF command failed on node {node} (code {process.returncode}): {command}")
+                logger.warning(
+                    f"DTMF command failed on node {node} (code {process.returncode}): {command}"
+                )
                 return False
         except Exception as e:
             logger.error(f"Error executing DTMF command on node {node} '{command}': {e}")
             return False
 
     async def _execute_mapping_commands(
-        self,
-        mapping: AlertScriptMapping,
-        alerts: List[WeatherAlert],
-        is_clear: bool = False
+        self, mapping: AlertScriptMapping, alerts: List[WeatherAlert], is_clear: bool = False
     ) -> None:
         """
         Execute commands for a mapping.
@@ -319,9 +323,7 @@ class AlertScriptManager:
                         await self._execute_dtmf_command(node, command)
 
     async def process_alerts(
-        self,
-        current_alerts: List[WeatherAlert],
-        previous_alert_events: Optional[Set[str]] = None
+        self, current_alerts: List[WeatherAlert], previous_alert_events: Optional[Set[str]] = None
     ) -> Set[str]:
         """
         Process alerts and execute matching AlertScript mappings.
@@ -344,7 +346,9 @@ class AlertScriptManager:
             logger.info("AlertScript: Active alerts transition (0 -> non-zero)")
             for mapping in self.active_commands:
                 # Use first alert for placeholder substitution
-                await self._execute_mapping_commands(mapping, current_alerts[:1] if current_alerts else [])
+                await self._execute_mapping_commands(
+                    mapping, current_alerts[:1] if current_alerts else []
+                )
 
         # Handle InactiveCommands (non-zero -> 0 transition)
         if previous_alert_events and not current_alert_events:
@@ -362,14 +366,14 @@ class AlertScriptManager:
                 if mapping.matches_all_triggers(current_alert_events):
                     # Get all alerts that match any trigger
                     matching_alerts = [
-                        alert for alert in current_alerts
-                        if mapping.matches_alert(alert.event)
+                        alert for alert in current_alerts if mapping.matches_alert(alert.event)
                     ]
                     if matching_alerts:
                         matched_alerts_by_mapping[mapping] = matching_alerts
             else:  # Match: ANY
                 matching_alerts = [
-                    alert for alert in current_alerts
+                    alert
+                    for alert in current_alerts
                     if mapping.matches_alert(alert.event) and alert.event in new_alert_events
                 ]
                 if matching_alerts:
@@ -387,31 +391,31 @@ class AlertScriptManager:
         cleared_alert_events = self.processed_alerts - current_alert_events
         if cleared_alert_events:
             logger.debug(f"AlertScript: Processing clear commands for: {cleared_alert_events}")
-            
+
             for mapping in self.mappings:
                 if not mapping.clear_commands:
                     continue
-                
+
                 # Check if mapping should trigger clear commands
                 should_clear = False
                 if mapping.match_type == "ALL":
                     # For ALL, check if all triggers are cleared
                     should_clear = not any(
                         mapping.matches_alert(event) for event in current_alert_events
-                    ) and any(
-                        mapping.matches_alert(event) for event in cleared_alert_events
-                    )
+                    ) and any(mapping.matches_alert(event) for event in cleared_alert_events)
                 else:  # Match: ANY
                     # For ANY, check if any trigger is cleared
                     should_clear = any(
                         mapping.matches_alert(event) for event in cleared_alert_events
                     )
-                
+
                 if should_clear:
                     # Use alerts from processed set for placeholder substitution
                     cleared_alerts = [
-                        alert for alert in current_alerts
-                        if alert.event in cleared_alert_events and mapping.matches_alert(alert.event)
+                        alert
+                        for alert in current_alerts
+                        if alert.event in cleared_alert_events
+                        and mapping.matches_alert(alert.event)
                     ]
                     if not cleared_alerts:
                         _now = datetime.now(timezone.utc)
@@ -439,7 +443,7 @@ class AlertScriptManager:
                             sender_name="",
                         )
                         cleared_alerts = [dummy_alert]
-                    
+
                     await self._execute_mapping_commands(mapping, cleared_alerts, is_clear=True)
                     # Remove from processed set
                     for event in cleared_alert_events:
@@ -447,4 +451,3 @@ class AlertScriptManager:
                             self.processed_alerts.discard(event)
 
         return current_alert_events
-

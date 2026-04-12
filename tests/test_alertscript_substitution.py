@@ -46,17 +46,13 @@ def _sample_alert(**kw):
 def test_bash_substitution_quotes_injection():
     malicious = _sample_alert(event="foo; rm -rf /; echo ")
     cmd = "/bin/echo {alert_event}"
-    out = AlertScriptManager._substitute_placeholders(
-        cmd, malicious, shell_quoting=True
-    )
+    out = AlertScriptManager._substitute_placeholders(cmd, malicious, shell_quoting=True)
     assert out == "/bin/echo " + shlex.quote(malicious.event)
 
 
 def test_dtmf_substitution_allows_digits():
     a = _sample_alert()
-    out = AlertScriptManager._substitute_placeholders(
-        "841", a, shell_quoting=False
-    )
+    out = AlertScriptManager._substitute_placeholders("841", a, shell_quoting=False)
     assert AlertScriptManager._dtmf_command_is_safe(out)
 
 

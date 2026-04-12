@@ -34,7 +34,7 @@ These trip people up most often:
 | **Asterisk user** | The installer expects the **`asterisk`** user to exist (standard on AllStar / Asterisk nodes). Install Asterisk first, or the script will exit with an error. |
 | **Do not run `install.sh` as root** | Run it as a normal user; the script uses `sudo` where needed. |
 | **Python** | **Python 3.11 or newer** is required. Debian 13 ships **Python 3.13**, which is what we test most. |
-| **`/var/tmp` and pip temp space** | **`install.sh`** sets **`TMPDIR`** to **`/var/tmp`** (overridable with **`SKYWARN_TMPDIR`**) while creating the venv and running **pip**, so large wheels (e.g. **scipy**) do not fill a small **`/tmp`** tmpfs. **`/var/tmp`** should be **disk-backed** and have enough free space. If **`/var/tmp`** is tmpfs or too small, set e.g. **`SKYWARN_TMPDIR=/var/lib/skywarnplus-ng/tmp`** and create that directory before installing. |
+| **`/var/tmp` and pip temp space** | **`install.sh`** sets **`TMPDIR`** to **`/var/tmp`** (overridable with **`SKYWARN_TMPDIR`**) while creating the venv and running **pip**, so large wheels (e.g. **numpy** / **piper** deps) do not fill a small **`/tmp`** tmpfs. **`/var/tmp`** should be **disk-backed** and have enough free space. If **`/var/tmp`** is tmpfs or too small, set e.g. **`SKYWARN_TMPDIR=/var/lib/skywarnplus-ng/tmp`** and create that directory before installing. |
 | **Release tarball** | Use a [GitHub release](https://github.com/hardenedpenguin/SkywarnPlus-NG/releases) tarball. The repo includes a pre-built `tailwind.css`; if you build from a **minimal** git checkout without that file, the installer will warn you—run `npm install && npm run build:css` (see [Web dashboard CSS](#web-dashboard-css-for-developers)) and copy `src/` again, or use an official release. |
 
 ## Quick Start
@@ -166,7 +166,7 @@ After changing **`base_path` or proxy settings**, restart: **`sudo systemctl res
 
 - **`poll_interval`** (seconds) controls how often alerts are fetched (default **60** in `default.yaml`).
 - The app identifies itself to api.weather.gov with a **`User-Agent`**; do not use a generic placeholder that violates NWS policy.
-- **Failed NWS fetch:** If a poll cannot reach the API (network error, timeout, etc.), the app **keeps the previous alert list** and logs a warning. The dashboard can still show “old” alerts until the next **successful** fetch; check **`journalctl -u skywarnplus-ng`** if behavior seems stuck after an outage.
+- **Failed NWS fetch:** If a poll cannot reach the API (network error, timeout, etc.), the app **keeps the previous alert list** and logs a warning. The dashboard shows an **NWS feed warning** banner with the time of the failure until the next **successful** fetch. Check **`journalctl -u skywarnplus-ng`** for details.
 - **`alerts.time_type`:** With **`onset`**, an alert’s active window uses **`onset`** … **`ends`** (if present) else **`expires`**. With **`effective`**, the window uses **`effective`** … **`expires`**. The UI may show an **Expires** time that differs from **`ends`**; cancellation products with **`urgency: Past`** (or “cancelled” in the headline) are **dropped immediately** and are not held until **`ends`**.
 
 ### Email notifications (Gmail)
@@ -243,7 +243,9 @@ ruff check src tests
 pytest tests/ -v
 ```
 
-CI runs **Ruff** and **pytest** on **Python 3.11–3.13** for pushes and pull requests to **`main`**.
+CI runs **Ruff** (lint + format check), **mypy** on a small typed subset, and **pytest** on **Python 3.11–3.13** for pushes and pull requests to **`main`**.
+
+Optional: install **[pre-commit](https://pre-commit.com/)** and run **`pre-commit install`** in this repo to run **Ruff** before each commit (see **`.pre-commit-config.yaml`**).
 
 ## Web dashboard CSS (for developers)
 
@@ -256,4 +258,4 @@ npm run build:css
 
 ## License
 
-MIT License - see LICENSE file for details.
+SkywarnPlus-NG is licensed under the **GNU General Public License v3.0 or later**. See the **[LICENSE](LICENSE)** file for the full text.
