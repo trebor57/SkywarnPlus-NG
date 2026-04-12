@@ -5,6 +5,7 @@ NWS API client for fetching weather alerts.
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any, Set
 import logging
+import re
 import asyncio
 import httpx
 from dateutil import parser
@@ -20,6 +21,68 @@ from ..core.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+# NWS SAME uses a 6-digit FIPS form: 0 + 2-digit state FIPS + 3-digit county FIPS (e.g. 048167 -> TXC167).
+_FIPS_STATE_POSTAL: Dict[str, str] = {
+    "01": "AL",
+    "02": "AK",
+    "04": "AZ",
+    "05": "AR",
+    "06": "CA",
+    "08": "CO",
+    "09": "CT",
+    "10": "DE",
+    "11": "DC",
+    "12": "FL",
+    "13": "GA",
+    "15": "HI",
+    "16": "ID",
+    "17": "IL",
+    "18": "IN",
+    "19": "IA",
+    "20": "KS",
+    "21": "KY",
+    "22": "LA",
+    "23": "ME",
+    "24": "MD",
+    "25": "MA",
+    "26": "MI",
+    "27": "MN",
+    "28": "MS",
+    "29": "MO",
+    "30": "MT",
+    "31": "NE",
+    "32": "NV",
+    "33": "NH",
+    "34": "NJ",
+    "35": "NM",
+    "36": "NY",
+    "37": "NC",
+    "38": "ND",
+    "39": "OH",
+    "40": "OK",
+    "41": "OR",
+    "42": "PA",
+    "44": "RI",
+    "45": "SC",
+    "46": "SD",
+    "47": "TN",
+    "48": "TX",
+    "49": "UT",
+    "50": "VT",
+    "51": "VA",
+    "53": "WA",
+    "54": "WV",
+    "55": "WI",
+    "56": "WY",
+    "60": "AS",
+    "66": "GU",
+    "69": "MP",
+    "72": "PR",
+    "78": "VI",
+}
+
+_UGC_COUNTY_CODE = re.compile(r"^[A-Z]{2}C\d{3}$")
 
 
 class NWSClientError(Exception):
@@ -144,6 +207,43 @@ class NWSClient:
         except (ValueError, TypeError) as e:
             raise NWSClientError(f"Invalid datetime {dt_str!r}: {e}") from e
 
+    @staticmethod
+    def _county_codes_from_nws_geocode(geocode: Dict[str, Any]) -> List[str]:
+        """
+        Build NWS county zone codes (e.g. TXC167) for filtering and display.
+
+        Coastal/marine products often list forecast zones (TXZ###) in UGC while SAME still
+        lists affected county FIPS. Geographic matching uses ``TXC###`` codes from config.
+        """
+        out: List[str] = []
+        seen: Set[str] = set()
+
+        def add(code: str) -> None:
+            if code not in seen:
+                seen.add(code)
+                out.append(code)
+
+        ugc_raw = geocode.get("UGC", [])
+        if isinstance(ugc_raw, list):
+            for raw in ugc_raw:
+                if isinstance(raw, str):
+                    u = raw.strip().upper()
+                    if _UGC_COUNTY_CODE.match(u):
+                        add(u)
+
+        same_raw = geocode.get("SAME", [])
+        if isinstance(same_raw, list):
+            for raw in same_raw:
+                s = str(raw).strip()
+                if len(s) == 6 and s.isdigit() and s[0] == "0":
+                    state_fips = s[1:3]
+                    county_fips = s[3:6]
+                    abbrev = _FIPS_STATE_POSTAL.get(state_fips)
+                    if abbrev:
+                        add(f"{abbrev}C{county_fips}")
+
+        return out
+
     def _parse_alert(self, feature: Dict[str, Any]) -> WeatherAlert:
         """Parse a GeoJSON feature into a WeatherAlert."""
         props = feature.get("properties")
@@ -167,9 +267,9 @@ class NWSClient:
         if "ends" in props and props["ends"] is not None:
             ends = self._parse_datetime(props["ends"])
 
-        # Extract geocode (county codes)
+        # Extract geocode (county codes for monitored-county matching)
         geocode = props.get("geocode") if isinstance(props.get("geocode"), dict) else {}
-        county_codes = geocode.get("UGC", []) if isinstance(geocode.get("UGC"), list) else []
+        county_codes = self._county_codes_from_nws_geocode(geocode)
 
         return WeatherAlert(
             id=props["id"],
