@@ -639,9 +639,9 @@ class SkywarnPlusApplication:
             # Save state
             self.state_manager.save_state(self.state)
 
-            # Broadcast status update via WebSocket
+            # Broadcast status and alert list (cards use last_alerts; must match each poll)
             if self.web_dashboard:
-                await self.web_dashboard.broadcast_update("status_update", self.get_status())
+                await self.web_dashboard.broadcast_poll_updates(self.get_status())
 
             logger.debug(f"Poll cycle complete - {len(current_alerts)} alerts processed")
 
@@ -778,6 +778,10 @@ class SkywarnPlusApplication:
         # Process expired alerts
         if expired_alerts:
             await self._handle_expired_alerts(expired_alerts)
+
+        # Refresh stored alert snapshots (NWS may extend/update without changing alert id)
+        for alert in processed_alerts:
+            self.state_manager.upsert_alert(self.state, alert)
 
         # Check for all-clear scenario (we had alerts, now we have none - announce if enabled)
         if not processed_alerts and had_active_alerts:

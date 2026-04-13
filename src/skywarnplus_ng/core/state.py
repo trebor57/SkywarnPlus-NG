@@ -148,6 +148,42 @@ class ApplicationState:
         state["last_alerts"][alert.id] = alert_data
         logger.debug(f"Added alert {alert.id} to state")
 
+    def upsert_alert(self, state: Dict[str, Any], alert: WeatherAlert) -> None:
+        """
+        Insert or refresh alert metadata in state.
+
+        NWS may update or extend an alert while keeping the same ``id``. The dashboard
+        and API read from ``last_alerts``; without this, ``expires`` / ``ends`` / text
+        can stay stuck on the first snapshot.
+        """
+        last = state.get("last_alerts", {})
+        existing = last.get(alert.id) if isinstance(last, dict) else None
+
+        alert_data = {
+            "id": alert.id,
+            "event": alert.event,
+            "headline": alert.headline,
+            "description": alert.description,
+            "instruction": alert.instruction,
+            "severity": alert.severity.value,
+            "urgency": alert.urgency.value,
+            "certainty": alert.certainty.value,
+            "area_desc": alert.area_desc,
+            "county_codes": alert.county_codes,
+            "effective": alert.effective.isoformat(),
+            "expires": alert.expires.isoformat(),
+            "onset": alert.onset.isoformat() if alert.onset else None,
+            "ends": alert.ends.isoformat() if alert.ends else None,
+            "added_at": (
+                existing.get("added_at")
+                if isinstance(existing, dict) and existing.get("added_at")
+                else datetime.now(timezone.utc).isoformat()
+            ),
+        }
+
+        state["last_alerts"][alert.id] = alert_data
+        logger.debug(f"Upserted alert {alert.id} in state")
+
     def remove_alert(self, state: Dict[str, Any], alert_id: str) -> None:
         """
         Remove alert from state.

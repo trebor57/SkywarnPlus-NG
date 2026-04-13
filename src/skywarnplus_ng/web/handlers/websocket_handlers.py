@@ -150,3 +150,9 @@ class WebsocketHandlersMixin:
 
         # Remove disconnected clients
         self.websocket_clients -= disconnected
+
+    async def broadcast_poll_updates(self, status: Dict[str, Any]) -> None:
+        """After a successful NWS poll: status plus full alert list for live dashboard cards."""
+        await self.broadcast_update("status_update", status)
+        alerts = await self._get_current_alerts()
+        await self.broadcast_update("alerts_update", alerts)
