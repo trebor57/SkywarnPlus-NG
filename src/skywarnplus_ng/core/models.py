@@ -88,10 +88,3 @@ class WeatherAlert(BaseModel):
     county_codes: List[str] = Field(default_factory=list, description="County codes")
     sender: str = Field(..., description="Alert sender")
     sender_name: str = Field(..., description="Alert sender name")
-
-    class Config:
-        """Pydantic config."""
-
-        json_encoders = {
-            datetime: lambda v: v.isoformat(),
-        }

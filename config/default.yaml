@@ -105,7 +105,7 @@ scripts:
     # Example: Send SMS for tornado warnings
     "Tornado Warning":
       command: "/usr/local/bin/send-sms.sh"
-      args: ["Tornado Warning detected in area"]
+      args: ["Tornado Warning detected in {alert_area}"]
       timeout: 10
       enabled: true
     # Example: Update status page for severe weather
@@ -117,7 +117,7 @@ scripts:
     # Example: Pattern matching for all flood alerts
     "Flood*":
       command: "/usr/local/bin/flood-alert.sh"
-      args: ["$ALERT_EVENT", "$ALERT_AREA"]
+      args: ["{alert_event}", "{alert_area}"]
       timeout: 20
       enabled: true
 

@@ -362,14 +362,36 @@ EOF
 
 clear_port() {
     print_section "Ensuring port ${WEB_PORT} is available"
-    
-    if command -v lsof >/dev/null 2>&1; then
-        sudo kill -9 $(sudo lsof -t -i :${WEB_PORT}) 2>/dev/null || true
-    elif command -v fuser >/dev/null 2>&1; then
-        sudo fuser -k ${WEB_PORT}/tcp 2>/dev/null || true
+
+    # If our service is running (e.g. reinstall/upgrade), stop it cleanly.
+    if command -v systemctl >/dev/null 2>&1; then
+        if sudo systemctl is-active --quiet skywarnplus-ng; then
+            echo "skywarnplus-ng is running; stopping service to free port ${WEB_PORT}..."
+            sudo systemctl stop skywarnplus-ng
+        fi
     fi
-    
-    print_success "Port ${WEB_PORT} cleared"
+
+    # Check if something else is still listening on the web port.
+    local in_use="false"
+    if command -v ss >/dev/null 2>&1; then
+        if sudo ss -ltnp "sport = :${WEB_PORT}" 2>/dev/null | grep -q ":${WEB_PORT}"; then
+            in_use="true"
+        fi
+    elif command -v lsof >/dev/null 2>&1; then
+        if sudo lsof -iTCP:"${WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+            in_use="true"
+        fi
+    fi
+
+    if [ "${in_use}" = "true" ]; then
+        print_warning "Port ${WEB_PORT} is in use by another process; not attempting to kill it."
+        echo "   Either stop the process using ${WEB_PORT}, or change monitoring.http_server.port in:"
+        echo "     ${CONFIG_DIR}/config.yaml"
+        echo "   Then rerun ./install.sh"
+        exit 1
+    fi
+
+    print_success "Port ${WEB_PORT} is available"
 }
 
 create_logrotate_config() {
