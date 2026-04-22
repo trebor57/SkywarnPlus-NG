@@ -165,6 +165,77 @@ After changing **`base_path` or proxy settings**, restart: **`sudo systemctl res
 
 Use a Google **App Password**, not your normal Gmail password. Enable **2-Step Verification**, then create an App Password under **Security** and paste it into the dashboard email settings.
 
+### Webhooks (how they work, how to configure, how to test)
+
+SkywarnPlus-NG can send **outbound HTTP callbacks** (webhooks) when an alert is generated. This is useful for:
+
+- **Discord / Slack / Teams**: post a message into a channel
+- **Home automation**: call Node-RED / Home Assistant / custom endpoints
+- **Logging/monitoring**: ship “an alert happened” events to another system
+
+Important details that often confuse people:
+
+- **Webhooks are outbound**: SkywarnPlus-NG makes an HTTPS `POST` request *from the server* to your URL.
+- **Webhooks are per-subscriber**: you add a subscriber and (optionally) give them a `webhook_url`. The subscriber must also have the **Webhook** delivery method enabled in their preferences.
+- **HTTPS is required** for subscriber webhooks. The server rejects `http://...` and blocks obvious local/private targets (e.g. `localhost`, `192.168.x.x`, `10.x.x.x`) to reduce SSRF risk.
+
+#### Configure a webhook (recommended approach)
+
+1. Go to **Configuration → Subscribers**.
+2. **Add Subscriber** (name + email are required; the email is just an identifier).
+3. Paste your **Webhook URL** into the subscriber’s **Webhook URL** field.
+4. In that subscriber’s methods, **enable “webhook”** (and optionally disable email if you only want webhook delivery).
+5. (Optional) Set per-county filtering on the subscriber so they only get the counties you care about.
+6. Save.
+
+> Discord note: This project treats Discord as “a webhook URL you POST JSON to”. The simplest setup is still via **Subscribers** so you can filter per-county and avoid duplicates.
+
+#### What gets sent
+
+Subscriber webhooks use a **generic JSON payload** (content-type `application/json`). Your endpoint should accept a JSON `POST` and return HTTP **200** or **204**.
+
+At minimum, expect fields like:
+
+- `title`: notification title
+- `message`: notification body (text)
+- `timestamp`: ISO8601 UTC time
+- `source`: `SkywarnPlus-NG`
+
+#### Test your webhook end-to-end (works on any system)
+
+The key is to test **from the SkywarnPlus-NG server**, because *that* is where the outbound request originates.
+
+1. **Get a temporary capture URL**
+   - Use a service like `webhook.site` (or any “request bin”) to get a unique HTTPS URL.
+2. **Paste that URL** into a Subscriber’s **Webhook URL** and enable the webhook method.
+3. **Generate a test alert**
+   - Easiest: enable **DEV → Test alert injection** (Configuration → DEV / Test Injection) and wait for the next poll; the app will generate a fake “Tornado Warning”.
+4. **Verify delivery**
+   - In the request-bin UI, you should see an incoming `POST` from your server.
+   - Also watch logs:
+
+```bash
+sudo journalctl -u skywarnplus-ng -f
+```
+
+If you don’t see requests arriving:
+
+- **URL rejected immediately**: the log will mention the webhook URL was rejected (common causes: `http://` instead of `https://`, `localhost`, private IPs).
+- **Firewall / outbound blocked**: ensure the server can reach the Internet on TCP 443.
+- **Reverse proxy / local endpoints**: if your webhook target is on your LAN, you must expose it via a **public HTTPS** endpoint (or a proper tunnel) because private targets are blocked by design.
+
+#### Test your endpoint directly (payload acceptance)
+
+If you own the webhook receiver (Node-RED / custom API), you can also test it with `curl`:
+
+```bash
+curl -i -X POST "https://YOUR-WEBHOOK-URL-HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"test":true,"message":"SkywarnPlus-NG manual webhook test"}'
+```
+
+For SkywarnPlus-NG delivery to count as success, your endpoint should respond with **HTTP 200 or 204**.
+
 ### Piper TTS (optional)
 
 The installer downloads **en_US-amy** (low quality by default) under **`/var/lib/skywarnplus-ng/piper/`**. For **medium** quality: `PIPER_QUALITY=medium ./install.sh`. In the UI, select **Piper** and leave model path empty to use the default install path.
