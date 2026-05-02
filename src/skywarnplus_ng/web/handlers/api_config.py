@@ -17,6 +17,31 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _list_piper_onnx_models(piper_dir: Path) -> list[str]:
+    """Return sorted absolute paths to *.onnx files directly under piper_dir."""
+    if not piper_dir.is_dir():
+        return []
+    try:
+        root = piper_dir.resolve()
+    except OSError:
+        return []
+    out: list[str] = []
+    try:
+        candidates = sorted(root.glob("*.onnx"), key=lambda x: x.name.lower())
+    except OSError:
+        return []
+    for p in candidates:
+        try:
+            if not p.is_file():
+                continue
+            resolved = p.resolve()
+            resolved.relative_to(root)
+        except (ValueError, OSError):
+            continue
+        out.append(str(resolved))
+    return out
+
+
 class ConfigApiMixin:
     def _serialize_asterisk_nodes(self, raw_nodes):
         """Convert asterisk.nodes (int | NodeConfig) to JSON-serializable list."""
@@ -73,6 +98,9 @@ class ConfigApiMixin:
                     serializable_config["piper_default_model_path"] = str(
                         base / "en_US-amy-low.onnx"
                     )
+                serializable_config["piper_available_models"] = _list_piper_onnx_models(base)
+            else:
+                serializable_config["piper_available_models"] = []
 
             return web.json_response(serializable_config)
         except Exception as e:

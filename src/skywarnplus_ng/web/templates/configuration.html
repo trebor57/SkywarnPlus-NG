@@ -502,13 +502,14 @@
                         <!-- Piper-specific fields -->
                         <div id="tts_piper_model_path" class="tts-piper-field">
                             <label for="tts_model_path" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                Model Path (.onnx file)
+                                Piper voice model (.onnx)
                             </label>
-                            <input type="text" id="tts_model_path" name="audio.tts.model_path" 
-                                   class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
-                                   placeholder="/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx">
+                            <select id="tts_model_path" name="audio.tts.model_path"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100">
+                                <option value="">Loading…</option>
+                            </select>
                             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                                Path to Piper TTS model file (.onnx). Defaults to the install script&apos;s en_US-amy-low location when empty. The .onnx.json file must be in the same directory.
+                                Lists <code class="text-xs">*.onnx</code> files in your Piper directory (next to <code class="text-xs">data_dir</code>). Add models there and reload this page. Each model needs its matching <code class="text-xs">.onnx.json</code> beside it.
                             </p>
                         </div>
                         
@@ -1848,6 +1849,57 @@
         return (base || '/var/lib/skywarnplus-ng') + '/piper/en_US-amy-low.onnx';
     }
 
+    function populatePiperModelSelect(config) {
+        const sel = document.getElementById('tts_model_path');
+        if (!sel || sel.tagName !== 'SELECT') return;
+        while (sel.firstChild) sel.removeChild(sel.firstChild);
+        const models = Array.isArray(config.piper_available_models)
+            ? [...config.piper_available_models]
+            : [];
+        const def = config.piper_default_model_path || getDefaultPiperModelPath(config);
+        const current = (config.audio && config.audio.tts && config.audio.tts.model_path) || '';
+        const seen = new Set();
+
+        function addOpt(val, text, title) {
+            if (!val || seen.has(val)) return;
+            seen.add(val);
+            const o = document.createElement('option');
+            o.value = val;
+            o.textContent = text;
+            if (title) o.title = title;
+            sel.appendChild(o);
+        }
+
+        if (current && models.indexOf(current) < 0) {
+            const baseName = current.split('/').pop() || current;
+            addOpt(current, baseName + ' (current path)', current);
+        }
+        models.sort(function (a, b) {
+            const na = (a.split('/').pop() || a).toLowerCase();
+            const nb = (b.split('/').pop() || b).toLowerCase();
+            return na.localeCompare(nb);
+        });
+        for (let i = 0; i < models.length; i++) {
+            const p = models[i];
+            const baseName = p.split('/').pop() || p;
+            addOpt(p, baseName, p);
+        }
+        if (def && !seen.has(def)) {
+            const baseName = def.split('/').pop() || def;
+            addOpt(def, baseName + ' (suggested default)', def);
+        }
+        if (sel.options.length === 0 && def) {
+            const baseName = def.split('/').pop() || def;
+            addOpt(def, baseName + ' (no scans yet — add .onnx files)', def);
+        }
+
+        const want = (current && seen.has(current)) ? current : (current || def);
+        const opts = [...sel.options];
+        if (want && opts.some(function (o) { return o.value === want; })) sel.value = want;
+        else if (def && opts.some(function (o) { return o.value === def; })) sel.value = def;
+        else if (opts.length) sel.selectedIndex = 0;
+    }
+
     // Tab management
     function updateTTSEngineFields() {
         const engine = document.getElementById('tts_engine').value;
@@ -1870,10 +1922,11 @@
             piperFields.forEach(field => {
                 field.style.display = 'block';
             });
-            // Default model path to installed location when user selects Piper and path is empty
-            const pathEl = document.getElementById('tts_model_path');
-            if (pathEl && !pathEl.value.trim()) {
-                pathEl.value = getDefaultPiperModelPath(window.currentConfig || {});
+            const sel = document.getElementById('tts_model_path');
+            if (sel && sel.tagName === 'SELECT' && !sel.value) {
+                const def = getDefaultPiperModelPath(window.currentConfig || {});
+                if ([...sel.options].some(function (o) { return o.value === def; })) sel.value = def;
+                else if (sel.options.length) sel.selectedIndex = 0;
             }
         }
     }
@@ -2002,11 +2055,7 @@
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
-        const engine = config.audio?.tts?.engine || 'piper';
-        const modelPath = config.audio?.tts?.model_path;
-        document.getElementById('tts_model_path').value = (engine === 'piper' && !modelPath)
-            ? getDefaultPiperModelPath(config)
-            : (modelPath || '');
+        populatePiperModelSelect(config);
         document.getElementById('tts_speed').value = config.audio?.tts?.speed || 1.0;
         document.getElementById('tts_output_format').value = config.audio?.tts?.output_format || 'ulaw';
         document.getElementById('tts_sample_rate').value = config.audio?.tts?.sample_rate || 8000;
