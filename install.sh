@@ -249,9 +249,10 @@ install_python_dependencies() {
     echo "Creating virtual environment (TMPDIR=${SKYWARN_TMPDIR})..."
     run_as_app_user_tmp "python3 -m venv ${VENV_PATH}"
     
-    echo "Installing packages..."
+    echo "Installing packages (upgrading deps to latest versions allowed by pyproject.toml)..."
     run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade pip"
-    run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install ."
+    # --upgrade + eager: otherwise pip leaves e.g. onnxruntime on an older satisfying release on reinstalls.
+    run_as_app_user_tmp "cd ${INSTALL_ROOT} && ${VENV_PYTHON} -m pip install --upgrade --upgrade-strategy eager ."
     
     print_success "Python dependencies installed"
 }
