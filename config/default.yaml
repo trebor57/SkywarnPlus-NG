@@ -61,13 +61,13 @@ audio:
   separator_sound: "Woodblock.wav"
   temp_dir: "/tmp/skywarnplus-ng-audio"
   tts:
-    engine: "gtts"  # Options: "gtts" or "piper"
-    # gTTS settings
+    engine: "piper"  # Options: "piper" (default, local) or "gtts" (cloud)
+    # gTTS settings (only used when engine is "gtts")
     language: "en"
     tld: "com"
     slow: false
-    # Piper TTS settings (only used when engine is "piper")
-    model_path: null  # Path to Piper TTS model file (.onnx). Install script installs en_US-amy to /var/lib/skywarnplus-ng/piper/
+    # Piper TTS settings (only used when engine is "piper"). Use en_US-amy-medium.onnx if installed with PIPER_QUALITY=medium
+    model_path: "/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx"
     speed: 1.0  # Speech speed for Piper (1.0 = normal, >1.0 = faster, <1.0 = slower)
     # Common settings
     output_format: "ulaw"  # ulaw format for Asterisk compatibility

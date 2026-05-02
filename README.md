@@ -88,7 +88,7 @@ Day-to-day operation uses **`systemctl`**; the service runs `skywarnplus_ng.cli 
 - GCC toolchain (`build-essential` or `gcc` / `g++`)
 - Packages the installer pulls on Debian: `ffmpeg`, `sox`, `libsndfile1`, `libopenblas0`, `libgomp1`, `libffi-dev`, `libssl-dev`, `libasound2-dev`, `portaudio19-dev`, `curl`, etc.
 - **`asterisk` user** (install Asterisk / ASL first)
-- Outbound Internet (NWS API; optional gTTS, Pushover, webhooks)
+- Outbound Internet (NWS API; optional cloud gTTS if you use it, Pushover, webhooks)
 
 On other distributions, install the equivalent packages, then run `./install.sh`.
 
@@ -126,7 +126,7 @@ On other distributions, install the equivalent packages, then run `./install.sh`
 2. Log in with **`admin` / `skywarn123`**, then go to **Configuration** and set a **new password** (stored as a bcrypt hash).
 3. **Counties:** Add or enable the [NWS county codes](CountyCodes.md) you need. Example codes in the default YAML are placeholders—replace with your area.
 4. **Asterisk:** Set your **node number(s)** and, if you use multiple nodes with different areas, per-node counties (see [Multi-node](#multi-node-deployments)).
-5. **Audio / TTS:** Choose **gTTS** (default) or **Piper** if you installed the Piper model during setup.
+5. **Audio / TTS:** Default is **Piper** (local). Use **gTTS** in the UI if you prefer cloud synthesis.
 6. **Alerts & filtering:** Tune tail message, courtesy tones, ID change, blocked events, etc., as needed.
 7. **Save** from the UI; changes go to **`/etc/skywarnplus-ng/config.yaml`**.
 
@@ -236,9 +236,9 @@ curl -i -X POST "https://YOUR-WEBHOOK-URL-HERE" \
 
 For SkywarnPlus-NG delivery to count as success, your endpoint should respond with **HTTP 200 or 204**.
 
-### Piper TTS (optional)
+### Piper TTS (default)
 
-The installer downloads **en_US-amy** (low quality by default) under **`/var/lib/skywarnplus-ng/piper/`**. For **medium** quality: `PIPER_QUALITY=medium ./install.sh`. In the UI, select **Piper** and leave model path empty to use the default install path.
+The installer downloads **en_US-amy** (low quality by default) under **`/var/lib/skywarnplus-ng/piper/`**. For **medium** quality: `PIPER_QUALITY=medium ./install.sh` and set **`audio.tts.model_path`** to the matching **`.onnx`** file (or pick it in the UI). In the UI, you can leave the Piper model path empty to use the default install path.
 
 ### Multi-node deployments
 

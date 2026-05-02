@@ -371,8 +371,8 @@ class PiperTSEngine:
 
         if not self.config.model_path or not str(self.config.model_path).strip():
             raise TTSEngineError(
-                "Model path is required for Piper TTS. Set audio.tts.model_path in config to the path "
-                "of your .onnx voice model file, or use audio.tts.engine: gtts for cloud TTS."
+                "Model path is required for Piper TTS. Set audio.tts.model_path to your .onnx voice "
+                "(e.g. /var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx), or set audio.tts.engine to gtts."
             )
 
         model_path = Path(self.config.model_path)

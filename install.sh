@@ -201,7 +201,7 @@ install_piper_model() {
         print_success "Piper model installed at ${PIPER_MODEL_DIR}"
         return 0
     else
-        print_warning "Piper model download failed. TTS will use gTTS. You can add a model later to ${PIPER_MODEL_DIR}."
+        print_warning "Piper model download failed. Default config expects a model under ${PIPER_MODEL_DIR}. Retry install, copy a model manually, or set audio.tts.engine to gtts in ${CONFIG_DIR}/config.yaml."
         sudo rm -f "${onnx}" "${json}"
         return 1
     fi
@@ -445,13 +445,16 @@ print_completion_message() {
     echo "- Audio files: ${INSTALL_ROOT}/SOUNDS/"
     echo "- Optional: put the dashboard behind a reverse proxy on port ${WEB_PORT}"
     echo ""
+    echo "Piper TTS (default local voice):"
     if [ -f "${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx" ]; then
-        echo "Piper TTS (optional):"
         echo "- Model installed at: ${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx"
-        echo "- In the Web UI Configuration tab, select Piper TTS; the model path defaults to this."
-        echo "- Use PIPER_QUALITY=medium before install to use en_US-amy-medium instead of low."
-        echo ""
+    else
+        echo "- Model not found at ${PIPER_MODEL_DIR}/${PIPER_MODEL}.onnx (download may have failed)."
+        echo "  Install a .onnx + .onnx.json pair there or switch to gTTS in the Configuration tab."
     fi
+    echo "- Default engine is Piper; the Web UI can leave model path blank to use the install path."
+    echo "- Use PIPER_QUALITY=medium before install to use en_US-amy-medium instead of low."
+    echo ""
 }
 
 # ============================================================================

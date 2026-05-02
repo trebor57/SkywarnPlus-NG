@@ -470,8 +470,8 @@
                             <select id="tts_engine" name="audio.tts.engine" 
                                     class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-gray-100"
                                     onchange="updateTTSEngineFields()">
-                                <option value="gtts">Google Text-to-Speech (gTTS)</option>
                                 <option value="piper">Piper TTS (Local)</option>
+                                <option value="gtts">Google Text-to-Speech (gTTS)</option>
                             </select>
                         </div>
                         
@@ -1998,11 +1998,11 @@
         document.getElementById('audio_separator_sound').value = config.audio?.separator_sound || '';
         document.getElementById('audio_temp_dir').value = config.audio?.temp_dir || '';
         
-        document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'gtts';
+        document.getElementById('tts_engine').value = config.audio?.tts?.engine || 'piper';
         document.getElementById('tts_language').value = config.audio?.tts?.language || 'en';
         document.getElementById('tts_tld').value = config.audio?.tts?.tld || 'com';
         document.getElementById('tts_slow').checked = config.audio?.tts?.slow || false;
-        const engine = config.audio?.tts?.engine || 'gtts';
+        const engine = config.audio?.tts?.engine || 'piper';
         const modelPath = config.audio?.tts?.model_path;
         document.getElementById('tts_model_path').value = (engine === 'piper' && !modelPath)
             ? getDefaultPiperModelPath(config)

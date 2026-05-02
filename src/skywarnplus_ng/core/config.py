@@ -131,12 +131,15 @@ class AsteriskConfig(BaseModel):
 class TTSConfig(BaseModel):
     """Text-to-Speech configuration."""
 
-    engine: str = Field("gtts", description="TTS engine to use: 'gtts' or 'piper'")
+    engine: str = Field("piper", description="TTS engine to use: 'gtts' or 'piper'")
     language: str = Field("en", description="Language code (for gTTS)")
     tld: str = Field("com", description="Top-level domain for gTTS")
     slow: bool = Field(False, description="Slow down speech (for gTTS)")
-    # Piper-specific settings
-    model_path: Optional[str] = Field(None, description="Path to Piper TTS model file (.onnx)")
+    # Piper-specific settings (install.sh places en_US-amy-low here by default)
+    model_path: Optional[str] = Field(
+        "/var/lib/skywarnplus-ng/piper/en_US-amy-low.onnx",
+        description="Path to Piper TTS model file (.onnx)",
+    )
     speed: float = Field(
         1.0,
         description="Speech speed/rate for Piper TTS (1.0 = normal, >1.0 = faster, <1.0 = slower)",
