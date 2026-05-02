@@ -240,6 +240,8 @@ For SkywarnPlus-NG delivery to count as success, your endpoint should respond wi
 
 The installer downloads **en_US-amy** (low quality by default) under **`/var/lib/skywarnplus-ng/piper/`**. For **medium** quality: `PIPER_QUALITY=medium ./install.sh` and set **`audio.tts.model_path`** to the matching **`.onnx`** file (or pick it in the UI). In the UI, you can leave the Piper model path empty to use the default install path.
 
+More Piper voices (many languages) are published in **[rhasspy/piper-voices on Hugging Face](https://huggingface.co/rhasspy/piper-voices/tree/main)**. Download the **`.onnx`** and matching **`.onnx.json`** for a voice into your Piper directory, then reload the dashboard configuration page so the new model appears in the list.
+
 ### Multi-node deployments
 
 Configure which counties each Asterisk node monitors so one server can serve different regions:
